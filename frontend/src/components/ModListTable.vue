@@ -9,7 +9,7 @@
       />
       <label class="filter-toggle">
         <input type="checkbox" v-model="showLosingOnly" />
-        Losing only
+        Display only conflicts
       </label>
     </div>
     <div class="table-wrap">
@@ -26,6 +26,7 @@
         </tr>
       </thead>
       <draggable
+        v-if="!isFiltered"
         v-model="draggableRows"
         tag="tbody"
         :item-key="(el: RowEntry) => el.row.name"
@@ -38,12 +39,7 @@
             :class="rowClass(row, idx)"
             @click="row.missing ? null : $emit('select', idx)"
           >
-            <td>
-              <span
-                class="drag-handle"
-                :class="{ 'drag-handle--hidden': isFiltered || row.missing }"
-              >⠿</span>
-            </td>
+            <td><span class="drag-handle" :class="{ 'drag-handle--hidden': row.missing }">⠿</span></td>
             <td>{{ row.missing ? '—' : idx + 1 }}</td>
             <td :title="row.name">{{ truncate(row.name, 43) }}</td>
             <td>{{ row.mod ? row.mod.fileCount : '—' }}</td>
@@ -63,6 +59,32 @@
           </tr>
         </template>
       </draggable>
+      <tbody v-else>
+        <tr
+          v-for="{ row, idx } in filteredRows"
+          :key="row.name"
+          :class="rowClass(row, idx)"
+          @click="row.missing ? null : $emit('select', idx)"
+        >
+          <td><span class="drag-handle drag-handle--hidden">⠿</span></td>
+          <td>{{ row.missing ? '—' : idx + 1 }}</td>
+          <td :title="row.name">{{ truncate(row.name, 43) }}</td>
+          <td>{{ row.mod ? row.mod.fileCount : '—' }}</td>
+          <td :class="row.mod && row.mod.conflictCount > 0 ? 'text-error' : ''">
+            {{ row.mod ? row.mod.conflictCount : '—' }}
+          </td>
+          <td v-if="row.mod">
+            <span class="text-success">{{ row.mod.wins }}</span>
+            {{ ' / ' }}
+            <span class="text-error">{{ row.mod.losses }}</span>
+          </td>
+          <td v-else>—</td>
+          <td>
+            <span v-if="row.missing" class="badge badge-missing">MISSING</span>
+            <span v-else-if="row.unlisted" class="badge badge-new">NEW</span>
+          </td>
+        </tr>
+      </tbody>
     </table>
     </div>
   </div>
