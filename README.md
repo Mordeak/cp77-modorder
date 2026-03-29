@@ -13,7 +13,12 @@ Scans your mods folder, detects file conflicts between archives, and lets you co
 - Restore any backup from `modlist.old/` in one click
 - Conflict resolution wizard for newly detected mods on rescan
 
-## Prerequisites
+## Requirements
+
+- Windows 10 or 11 (x64)
+- [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) — already installed on most Windows 10/11 systems via Windows Update
+
+## Prerequisites (building from source)
 
 | Tool | Version | Notes |
 |------|---------|-------|

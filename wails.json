@@ -17,6 +17,9 @@
     "copyright": "© 2025 Mordeak",
     "comments": "Cyberpunk 2077 .archive mod conflict manager"
   },
+  "windows": {
+    "webviewIsFixed": true
+  },
   "platforms": [
     { "os": "windows", "arch": "amd64", "ldflags": "-H windowsgui" }
   ]
