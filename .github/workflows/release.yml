@@ -32,7 +32,7 @@ jobs:
         run: cd frontend && npm install
 
       - name: Build
-        run: wails build -platform windows/amd64
+        run: wails build -platform windows/amd64 -trimpath -ldflags="-s -w"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

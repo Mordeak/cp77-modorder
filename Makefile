@@ -9,7 +9,7 @@ export CC
 all: build
 
 build:
-	wails build -platform windows/amd64 -o $(BINARY)
+	wails build -platform windows/amd64 -o $(BINARY) -trimpath -ldflags="-s -w"
 
 dev:
 	wails dev
