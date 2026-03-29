@@ -9,16 +9,15 @@
       </div>
       <div class="stat-row"><span class="stat-label">Wins</span><span class="text-success">{{ mod.wins }}</span></div>
       <div class="stat-row"><span class="stat-label">Losses</span><span class="text-error">{{ mod.losses }}</span></div>
-      <div class="stat-row">
-        <span class="stat-label">Priority</span>
-        <PriorityBadge :priority="mod.priority" />
-      </div>
+      <!-- <div class="stat-row"><span class="stat-label">Priority</span><PriorityBadge :priority="mod.priority" /></div> -->
     </div>
 
+    <!-- priority actions hidden until reworked
     <div class="detail-actions">
       <button @click="openPrioForm">Set Priority</button>
       <button @click="clearPriority" :disabled="mod.priority === 0">Clear Priority</button>
     </div>
+    -->
 
     <div v-if="mod.conflictsWith?.length" class="detail-section section-conflicts">
       <div class="section-title section-title--conflict">Conflicts</div>
@@ -42,23 +41,19 @@
       <LoadOrderDnd :anchor-name="mod.name" />
     </div>
 
-    <!-- Priority form -->
+    <!-- priority form hidden until reworked
     <dialog ref="prioDialog" class="prio-dialog">
       <div class="dialog-header">Set Priority — {{ mod.name }}</div>
       <div class="dialog-body">
-        <input
-          ref="prioInput"
-          type="text"
-          v-model="prioText"
-          placeholder="1–99, 0 = unset"
-          @keydown.enter="applyPriority"
-        />
+        <input ref="prioInput" type="text" v-model="prioText"
+          placeholder="1–99, 0 = unset" @keydown.enter="applyPriority" />
       </div>
       <div class="dialog-footer">
         <button @click="prioDialog!.close()">Cancel</button>
         <button class="primary" @click="applyPriority">Apply</button>
       </div>
     </dialog>
+    -->
   </div>
 </template>
 

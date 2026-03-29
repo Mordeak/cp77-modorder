@@ -17,8 +17,8 @@
       <thead>
         <tr>
           <th style="width:40px">#</th>
-          <th style="width:70px">Priority</th>
-          <th style="width:320px">Mod</th>
+          <!-- <th style="width:70px">Priority</th> -->
+          <th style="width:390px">Mod</th>
           <th style="width:55px">Files</th>
           <th style="width:80px">Conflicts</th>
           <th style="width:80px">W / L</th>
@@ -33,10 +33,7 @@
           @click="row.missing ? null : $emit('select', idx)"
         >
           <td>{{ row.missing ? '—' : idx + 1 }}</td>
-          <td>
-            <PriorityBadge v-if="row.mod" :priority="row.mod.priority" />
-            <span v-else>—</span>
-          </td>
+          <!-- <td><PriorityBadge v-if="row.mod" :priority="row.mod.priority" /><span v-else>—</span></td> -->
           <td :title="row.name">{{ truncate(row.name, 43) }}</td>
           <td>{{ row.mod ? row.mod.fileCount : '—' }}</td>
           <td :class="row.mod && row.mod.conflictCount > 0 ? 'text-error' : ''">
