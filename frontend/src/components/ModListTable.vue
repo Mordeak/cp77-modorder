@@ -110,30 +110,33 @@ function rowClass(row: main.DisplayRowDTO, idx: number) {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
-  background: var(--cp-bg2);
+  padding: 5px 8px;
+  background: #0D0D0D;
   border-bottom: 1px solid var(--cp-border);
   flex-shrink: 0;
 }
 .search-input {
   flex: 1;
-  background: var(--cp-bg);
+  background: var(--cp-input);
   color: var(--cp-fg);
   border: 1px solid var(--cp-border);
-  border-radius: 3px;
+  border-radius: 0;
   padding: 3px 7px;
   font-size: 12px;
   outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.search-input:focus { border-color: var(--cp-focus); }
+.search-input:focus { border-color: var(--cp-focus); box-shadow: var(--glow-focus); }
 .filter-toggle {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--cp-dim);
   cursor: pointer;
   white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 table {
   width: 100%;
@@ -141,7 +144,8 @@ table {
   table-layout: fixed;
 }
 thead tr {
-  background: var(--cp-bg2);
+  background: #0D0D0D;
+  border-bottom: 2px solid var(--cp-primary);
   position: sticky;
   top: 0;
 }
@@ -153,21 +157,43 @@ th, td {
   text-overflow: ellipsis;
   border-bottom: 1px solid var(--cp-border);
 }
-th { font-weight: 600; font-size: 12px; color: var(--cp-primary); }
+th {
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--cp-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  text-shadow: var(--glow-primary);
+}
 
 .row-clickable { cursor: pointer; }
-.row-clickable:hover td { background: rgba(255,255,255,0.04); }
-.row-selected td { background: var(--cp-row-selected) !important; }
-.row-conflict td { background: var(--cp-row-conflict); }
+.row-clickable:hover td { background: rgba(255,255,255,0.03); }
+.row-selected td {
+  background: var(--cp-row-selected) !important;
+  border-left: 2px solid var(--cp-focus) !important;
+}
+.row-conflict td { background: var(--cp-row-conflict); border-left: 2px solid var(--cp-error); }
 .row-missing td  { background: var(--cp-row-missing); color: var(--cp-dim); cursor: default; }
-.row-new td      { background: var(--cp-row-new); }
+.row-new td      { background: var(--cp-row-new); border-left: 2px solid var(--cp-primary); }
 
 .badge {
   font-size: 10px;
   padding: 1px 5px;
-  border-radius: 2px;
-  font-weight: 600;
+  border-radius: 0;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
-.badge-missing { background: rgba(255,51,102,0.3); color: var(--cp-error); }
-.badge-new     { background: rgba(240,192,0,0.25); color: var(--cp-primary); }
+.badge-missing {
+  background: rgba(255,51,102,0.2);
+  color: var(--cp-error);
+  border: 1px solid var(--cp-error);
+  box-shadow: var(--glow-error);
+}
+.badge-new {
+  background: rgba(240,192,0,0.15);
+  color: var(--cp-primary);
+  border: 1px solid var(--cp-primary);
+  box-shadow: var(--glow-primary);
+}
 </style>

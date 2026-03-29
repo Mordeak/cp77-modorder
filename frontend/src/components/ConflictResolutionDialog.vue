@@ -43,11 +43,18 @@ function advance() {
 </script>
 
 <style scoped>
-.crd-dialog { width: 480px; }
+.crd-dialog {
+  width: 480px;
+  border: 1px solid var(--cp-error);
+  box-shadow: 0 0 30px rgba(255,51,102,0.2);
+}
 .crd-hint {
   font-size: 12px;
   color: var(--cp-dim);
   line-height: 1.6;
   margin-bottom: 10px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--cp-error);
+  background: rgba(255,51,102,0.05);
 }
 </style>

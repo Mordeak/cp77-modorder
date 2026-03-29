@@ -115,56 +115,71 @@ async function clearPriority() {
   gap: 10px;
 }
 .detail-name {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--cp-primary);
+  text-shadow: var(--glow-primary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
   word-break: break-all;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--cp-primary);
 }
 .detail-stats {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 0;
 }
 .stat-row {
   display: flex;
   gap: 8px;
   font-size: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--cp-border);
 }
 .stat-label {
   color: var(--cp-dim);
   width: 130px;
   flex-shrink: 0;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.4px;
 }
 .detail-actions { display: flex; gap: 8px; }
 .detail-section {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  border-radius: 4px;
+  border-radius: 0;
   padding: 8px;
 }
 .section-conflicts {
   background: rgba(255, 51, 102, 0.05);
-  border: 1px solid rgba(255, 51, 102, 0.2);
+  border: 1px solid rgba(255, 51, 102, 0.3);
+  box-shadow: 0 0 12px rgba(255,51,102,0.08);
 }
 .section-loadorder {
-  background: rgba(0, 229, 255, 0.05);
-  border: 1px solid rgba(0, 229, 255, 0.15);
+  background: rgba(0, 229, 255, 0.04);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  box-shadow: 0 0 12px rgba(0,229,255,0.06);
 }
 .section-title {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 1px;
   padding-bottom: 5px;
   margin-bottom: 2px;
 }
 .section-title--conflict {
   color: var(--cp-error);
-  border-bottom: 1px solid rgba(255, 51, 102, 0.3);
+  text-shadow: var(--glow-error);
+  border-bottom: 1px solid rgba(255, 51, 102, 0.4);
 }
 .section-title--loadorder {
   color: var(--cp-focus);
-  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+  text-shadow: var(--glow-focus);
+  border-bottom: 1px solid rgba(0, 229, 255, 0.3);
 }
 .conflict-list { max-height: 260px; overflow-y: auto; }
 .conflict-entry {
@@ -176,11 +191,12 @@ async function clearPriority() {
 }
 .conflict-count {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   padding: 1px 6px;
-  border-radius: 10px;
-  background: rgba(255, 51, 102, 0.25);
+  border-radius: 0;
+  background: rgba(255, 51, 102, 0.15);
   color: var(--cp-error);
+  border: 1px solid var(--cp-error);
   flex-shrink: 0;
 }
 .prio-dialog { min-width: 300px; }

@@ -10,9 +10,11 @@ defineProps<{ text: string }>()
 .statusbar {
   flex-shrink: 0;
   padding: 3px 10px;
-  background: var(--cp-bg2);
-  border-top: 1px solid var(--cp-border);
-  font-size: 11px;
+  background: #0D0D0D;
+  border-top: 2px solid var(--cp-border);
+  font-size: 10px;
   color: var(--cp-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 </style>

@@ -9,12 +9,15 @@ defineProps<{ priority: number }>()
 
 <style scoped>
 .badge-prio {
-  background: rgba(240,192,0,0.25);
+  background: rgba(240,192,0,0.12);
   color: var(--cp-primary);
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 10px;
-  font-weight: 600;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 0;
+  font-weight: 700;
+  border: 1px solid var(--cp-primary);
+  box-shadow: var(--glow-primary);
+  letter-spacing: 0.3px;
 }
 .badge-unset { color: var(--cp-dim); }
 </style>

@@ -60,19 +60,31 @@ async function onReorder() {
   gap: 8px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--cp-border);
+  border-left: 2px solid transparent;
   cursor: default;
+  transition: background 0.1s;
 }
-.dnd-row--anchor { background: var(--cp-dnd-anchor); }
-.dnd-row--conflict { }
+.dnd-row--anchor {
+  background: var(--cp-dnd-anchor);
+  border-left-color: var(--cp-focus);
+}
+.dnd-row--conflict { border-left-color: var(--cp-error); }
+.dnd-row--conflict:hover { background: rgba(255,51,102,0.06); }
 .drag-handle {
   color: var(--cp-dim);
   cursor: grab;
   font-size: 16px;
   flex-shrink: 0;
+  transition: color 0.15s, text-shadow 0.15s;
 }
-.drag-handle:active { cursor: grabbing; }
+.drag-handle:hover { color: var(--cp-focus); text-shadow: var(--glow-focus); }
+.drag-handle:active { cursor: grabbing; color: var(--cp-primary); text-shadow: var(--glow-primary); }
 .dnd-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dnd-row--conflict .dnd-name { color: var(--cp-error); }
 .dnd-row--anchor .dnd-name   { color: var(--cp-fg); }
-.sortable-drag .dnd-row { background: var(--cp-dnd-drag) !important; }
+.sortable-drag .dnd-row {
+  background: var(--cp-dnd-drag) !important;
+  border-left-color: var(--cp-primary) !important;
+  box-shadow: 0 0 16px rgba(240,192,0,0.3) !important;
+}
 </style>

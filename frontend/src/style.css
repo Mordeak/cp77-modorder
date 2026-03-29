@@ -2,23 +2,29 @@
 
 :root {
   --cp-bg:       #0D0D0D;
-  --cp-bg2:      #1A1A1A;
+  --cp-bg2:      #141414;
   --cp-fg:       #EEEEEE;
-  --cp-dim:      #888888;
+  --cp-dim:      #666666;
   --cp-primary:  #F0C000;
   --cp-focus:    #00E5FF;
   --cp-error:    #FF3366;
   --cp-success:  #39FF14;
   --cp-button:   #1A1A1A;
-  --cp-input:    #1A1A1A;
+  --cp-input:    #111111;
   --cp-border:   #2A2A2A;
 
-  --cp-row-selected: rgba(0, 229, 255, 0.20);
+  --cp-row-selected: rgba(0, 229, 255, 0.18);
   --cp-row-conflict: rgba(255, 51, 102, 0.10);
   --cp-row-missing:  rgba(255, 51, 102, 0.09);
   --cp-row-new:      rgba(240, 192, 0, 0.09);
   --cp-dnd-drag:     rgba(240, 192, 0, 0.33);
-  --cp-dnd-anchor:   rgba(0, 229, 255, 0.20);
+  --cp-dnd-anchor:   rgba(0, 229, 255, 0.15);
+
+  /* Glow shorthands */
+  --glow-primary: 0 0 12px rgba(240, 192,   0, 0.7);
+  --glow-focus:   0 0 12px rgba(  0, 229, 255, 0.7);
+  --glow-error:   0 0 12px rgba(255,  51, 102, 0.7);
+  --glow-success: 0 0 12px rgba( 57, 255,  20, 0.7);
 }
 
 html, body, #app {
@@ -30,20 +36,37 @@ html, body, #app {
   overflow: hidden;
 }
 
+/* ---- Buttons ---- */
 button {
   background: var(--cp-button);
   color: var(--cp-fg);
   border: 1px solid var(--cp-border);
   padding: 4px 12px;
   cursor: pointer;
-  font-size: 13px;
-  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
 }
-button:hover { border-color: var(--cp-primary); color: var(--cp-primary); }
-button:disabled { opacity: 0.4; cursor: default; }
-button.primary { background: var(--cp-primary); color: #000; border-color: var(--cp-primary); }
-button.primary:hover { filter: brightness(1.15); }
+button:hover {
+  border-color: var(--cp-primary);
+  color: var(--cp-primary);
+  box-shadow: var(--glow-primary);
+}
+button:disabled { opacity: 0.35; cursor: default; }
+button:disabled:hover { border-color: var(--cp-border); color: var(--cp-fg); box-shadow: none; }
+button.primary {
+  background: var(--cp-primary);
+  color: #000;
+  border-color: var(--cp-primary);
+  font-weight: 700;
+  box-shadow: var(--glow-primary);
+}
+button.primary:hover { filter: brightness(1.2); box-shadow: 0 0 20px rgba(240,192,0,0.9); }
 
+/* ---- Inputs ---- */
 input[type="text"], input[type="search"] {
   background: var(--cp-input);
   color: var(--cp-fg);
@@ -52,45 +75,59 @@ input[type="text"], input[type="search"] {
   font-size: 13px;
   outline: none;
   width: 100%;
+  border-radius: 0;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-input:focus { border-color: var(--cp-focus); }
+input:focus {
+  border-color: var(--cp-focus);
+  box-shadow: var(--glow-focus);
+}
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: var(--cp-bg); }
-::-webkit-scrollbar-thumb { background: var(--cp-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 0; }
 ::-webkit-scrollbar-thumb:hover { background: var(--cp-dim); }
 
-/* Dialog */
+/* ---- Dialog ---- */
 dialog {
   background: var(--cp-bg2);
   color: var(--cp-fg);
   border: 1px solid var(--cp-border);
   padding: 0;
-  border-radius: 4px;
+  border-radius: 0;
   min-width: 360px;
   max-width: 90vw;
   max-height: 90vh;
 }
-dialog::backdrop { background: rgba(0,0,0,0.7); }
+dialog::backdrop { background: rgba(0,0,0,0.8); }
 
 .dialog-header {
-  padding: 12px 16px;
-  background: var(--cp-button);
-  border-bottom: 1px solid var(--cp-border);
-  font-weight: 600;
+  padding: 10px 16px;
+  background: #0D0D0D;
+  border-bottom: 2px solid var(--cp-primary);
+  font-weight: 700;
+  font-size: 12px;
   color: var(--cp-primary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: var(--glow-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .dialog-body { padding: 12px 16px; overflow-y: auto; }
 .dialog-footer {
   padding: 8px 16px;
   display: flex;
   gap: 8px;
+  align-items: center;
   justify-content: flex-end;
   border-top: 1px solid var(--cp-border);
+  background: #0D0D0D;
 }
 
-/* Utility */
+/* ---- Utility classes ---- */
 .text-error   { color: var(--cp-error); }
 .text-success { color: var(--cp-success); }
 .text-primary { color: var(--cp-primary); }

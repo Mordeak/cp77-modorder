@@ -36,9 +36,15 @@ defineEmits<{
   align-items: center;
   gap: 6px;
   padding: 5px 8px;
-  background: var(--cp-bg);
+  background: #0D0D0D;
   border-bottom: 1px solid var(--cp-border);
 }
 .pathbar input { flex: 1; }
-.msg { font-size: 11px; white-space: nowrap; }
+.msg {
+  font-size: 10px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
 </style>

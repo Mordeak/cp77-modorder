@@ -58,13 +58,22 @@ async function doWrite() {
 </script>
 
 <style scoped>
-dialog { width: 520px; }
+dialog {
+  width: 520px;
+  border: 1px solid var(--cp-primary);
+  box-shadow: 0 0 30px rgba(240,192,0,0.2);
+}
 .preview-list {
   max-height: 55vh;
   overflow-y: auto;
   padding-left: 24px;
   font-size: 12px;
-  line-height: 1.8;
+  line-height: 1.9;
   font-family: 'Consolas', monospace;
+  border: 1px solid var(--cp-border);
+  padding: 8px 8px 8px 28px;
+  background: #0D0D0D;
 }
+.preview-list li { border-bottom: 1px solid var(--cp-border); padding: 1px 0; }
+.preview-list li:last-child { border-bottom: none; }
 </style>
