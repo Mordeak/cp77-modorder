@@ -76,6 +76,15 @@ export function useWails() {
     return App.GetConflictGroup(name)
   }
 
+  async function setModlistOrder(names: string[]) {
+    try {
+      const result = await App.SetModlistOrder(names)
+      store.updateScanResult(result)
+    } catch (e: any) {
+      store.scanError = String(e)
+    }
+  }
+
   async function groupConflicts() {
     try {
       const result = await App.GroupConflicts()
@@ -85,9 +94,18 @@ export function useWails() {
     }
   }
 
+  async function listBackups(): Promise<string[]> {
+    return App.ListBackups()
+  }
+
+  async function restoreBackup(filename: string) {
+    const result = await App.RestoreBackup(filename)
+    store.updateScanResult(result)
+  }
+
   return {
     registerEvents, loadConfig, pickFolder, runScan,
     setPriority, reorderGroup, writeModlist, getApplyPreview, getConflictGroup,
-    groupConflicts,
+    setModlistOrder, groupConflicts, listBackups, restoreBackup,
   }
 }

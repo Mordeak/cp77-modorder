@@ -13,6 +13,7 @@ export const useAppStore = defineStore('app', () => {
   const showConflictGraph = ref(false)
   const showApplyDialog = ref(false)
   const showConflictResolution = ref(false)
+  const showRestoreDialog = ref(false)
   const newConflictingMods = ref<string[]>([])
 
   // Computed
@@ -49,7 +50,7 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     scanResult, selectedIndex, modDir, scanning, scanProgress, scanError,
-    showConflictGraph, showApplyDialog, showConflictResolution, newConflictingMods,
+    showConflictGraph, showApplyDialog, showConflictResolution, showRestoreDialog, newConflictingMods,
     rows, conflicts, summary, hasResult, selectedMod,
     setScanResult, updateScanResult, selectRow,
   }

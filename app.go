@@ -272,6 +272,39 @@ func (a *App) ReorderConflictGroup(names []string) (ScanResultDTO, error) {
 	return a.buildScanResult(), nil
 }
 
+// SetModlistOrder replaces the in-memory load order with the provided list and
+// recomputes wins/losses to match. The change is not written to disk until the
+// user clicks Apply (WriteModlist).
+func (a *App) SetModlistOrder(names []string) (ScanResultDTO, error) {
+	if a.result == nil {
+		return ScanResultDTO{}, fmt.Errorf("no scan results")
+	}
+	a.modlistOrder = names
+	a.modlistSet = make(map[string]bool, len(names))
+	for _, n := range names {
+		a.modlistSet[n] = true
+	}
+
+	// Assign sequential priorities matching the new order so ApplyPriorities
+	// re-sorts result.Mods and recomputes wins/losses correctly.
+	// Not persisted to cfg — a rescan restores saved priorities.
+	modByName := make(map[string]*conflict.ModInfo, len(a.result.Mods))
+	for _, m := range a.result.Mods {
+		modByName[m.Name] = m
+	}
+	for _, m := range a.result.Mods {
+		m.Priority = 0
+	}
+	for i, name := range names {
+		if m, ok := modByName[name]; ok {
+			m.Priority = i + 1
+		}
+	}
+	a.result.ApplyPriorities()
+
+	return a.buildScanResult(), nil
+}
+
 // GetApplyPreview returns the ordered mod names that will be written to modlist.txt.
 func (a *App) GetApplyPreview() (ApplyPreviewDTO, error) {
 	if a.result == nil {
@@ -283,6 +316,57 @@ func (a *App) GetApplyPreview() (ApplyPreviewDTO, error) {
 		names[i] = m.Name
 	}
 	return ApplyPreviewDTO{Names: names}, nil
+}
+
+// ListBackups returns backup filenames from modlist.old/, newest first.
+func (a *App) ListBackups() ([]string, error) {
+	if a.modDir == "" {
+		return []string{}, nil
+	}
+	backupDir := filepath.Join(a.modDir, "modlist.old")
+	entries, err := os.ReadDir(backupDir)
+	if os.IsNotExist(err) {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read backup dir: %w", err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	// Newest first (timestamps sort lexicographically, so reverse).
+	sort.Slice(names, func(i, j int) bool { return names[i] > names[j] })
+	return names, nil
+}
+
+// RestoreBackup copies a file from modlist.old/ to modlist.txt and reloads the order.
+func (a *App) RestoreBackup(filename string) (ScanResultDTO, error) {
+	if a.modDir == "" {
+		return ScanResultDTO{}, fmt.Errorf("no mod directory set")
+	}
+	if strings.ContainsAny(filename, "/\\") {
+		return ScanResultDTO{}, fmt.Errorf("invalid backup filename")
+	}
+	data, err := os.ReadFile(filepath.Join(a.modDir, "modlist.old", filename))
+	if err != nil {
+		return ScanResultDTO{}, fmt.Errorf("read backup: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(a.modDir, "modlist.txt"), data, 0o644); err != nil {
+		return ScanResultDTO{}, fmt.Errorf("write modlist.txt: %w", err)
+	}
+	order, err := a.readModlistOrder(a.modDir)
+	if err != nil {
+		return ScanResultDTO{}, fmt.Errorf("reload modlist: %w", err)
+	}
+	a.modlistOrder = order
+	a.modlistSet = make(map[string]bool, len(order))
+	for _, n := range order {
+		a.modlistSet[n] = true
+	}
+	return a.buildScanResult(), nil
 }
 
 // WriteModlist writes modlist.txt to the current mod directory.

@@ -16,8 +16,8 @@
     <table>
       <thead>
         <tr>
-          <th style="width:40px">#</th>
-          <!-- <th style="width:70px">Priority</th> -->
+          <th style="width:24px"></th>
+          <th style="width:32px">#</th>
           <th style="width:390px">Mod</th>
           <th style="width:55px">Files</th>
           <th style="width:80px">Conflicts</th>
@@ -25,42 +25,57 @@
           <th style="width:65px">Status</th>
         </tr>
       </thead>
-      <tbody>
-        <tr
-          v-for="({ row, idx }) in filteredRows"
-          :key="row.name + idx"
-          :class="rowClass(row, idx)"
-          @click="row.missing ? null : $emit('select', idx)"
-        >
-          <td>{{ row.missing ? '—' : idx + 1 }}</td>
-          <!-- <td><PriorityBadge v-if="row.mod" :priority="row.mod.priority" /><span v-else>—</span></td> -->
-          <td :title="row.name">{{ truncate(row.name, 43) }}</td>
-          <td>{{ row.mod ? row.mod.fileCount : '—' }}</td>
-          <td :class="row.mod && row.mod.conflictCount > 0 ? 'text-error' : ''">
-            {{ row.mod ? row.mod.conflictCount : '—' }}
-          </td>
-          <td v-if="row.mod">
-            <span class="text-success">{{ row.mod.wins }}</span>
-            {{ ' / ' }}
-            <span class="text-error">{{ row.mod.losses }}</span>
-          </td>
-          <td v-else>—</td>
-          <td>
-            <span v-if="row.missing" class="badge badge-missing">MISSING</span>
-            <span v-else-if="row.unlisted" class="badge badge-new">NEW</span>
-          </td>
-        </tr>
-      </tbody>
+      <draggable
+        v-model="draggableRows"
+        tag="tbody"
+        :item-key="(el: RowEntry) => el.row.name"
+        handle=".drag-handle"
+        :animation="150"
+        @end="onReorder"
+      >
+        <template #item="{ element: { row, idx } }">
+          <tr
+            :class="rowClass(row, idx)"
+            @click="row.missing ? null : $emit('select', idx)"
+          >
+            <td>
+              <span
+                class="drag-handle"
+                :class="{ 'drag-handle--hidden': isFiltered || row.missing }"
+              >⠿</span>
+            </td>
+            <td>{{ row.missing ? '—' : idx + 1 }}</td>
+            <td :title="row.name">{{ truncate(row.name, 43) }}</td>
+            <td>{{ row.mod ? row.mod.fileCount : '—' }}</td>
+            <td :class="row.mod && row.mod.conflictCount > 0 ? 'text-error' : ''">
+              {{ row.mod ? row.mod.conflictCount : '—' }}
+            </td>
+            <td v-if="row.mod">
+              <span class="text-success">{{ row.mod.wins }}</span>
+              {{ ' / ' }}
+              <span class="text-error">{{ row.mod.losses }}</span>
+            </td>
+            <td v-else>—</td>
+            <td>
+              <span v-if="row.missing" class="badge badge-missing">MISSING</span>
+              <span v-else-if="row.unlisted" class="badge badge-new">NEW</span>
+            </td>
+          </tr>
+        </template>
+      </draggable>
     </table>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import draggable from 'vuedraggable'
 import type { main } from '../../wailsjs/go/models'
 import { truncate } from '../utils'
-import PriorityBadge from './PriorityBadge.vue'
+import { useWails } from '../composables/useWails'
+
+type RowEntry = { row: main.DisplayRowDTO; idx: number }
 
 const searchQuery = ref('')
 const showLosingOnly = ref(false)
@@ -71,16 +86,28 @@ const props = defineProps<{
 }>()
 defineEmits<{ select: [idx: number] }>()
 
+const wails = useWails()
+
+const draggableRows = ref<RowEntry[]>([])
+watch(() => props.rows, (rows) => {
+  draggableRows.value = rows.map((row, idx) => ({ row, idx }))
+}, { immediate: true })
+
+const isFiltered = computed(() => searchQuery.value !== '' || showLosingOnly.value)
+
 const filteredRows = computed(() => {
   const q = searchQuery.value.toLowerCase()
-  return props.rows
-    .map((row, idx) => ({ row, idx }))
-    .filter(({ row }) => {
-      if (q && !row.name.toLowerCase().includes(q)) return false
-      if (showLosingOnly.value && (row.mod?.losses ?? 0) === 0) return false
-      return true
-    })
+  return draggableRows.value.filter(({ row }) => {
+    if (q && !row.name.toLowerCase().includes(q)) return false
+    if (showLosingOnly.value && (row.mod?.losses ?? 0) === 0) return false
+    return true
+  })
 })
+
+async function onReorder() {
+  if (isFiltered.value) return
+  await wails.setModlistOrder(draggableRows.value.map(e => e.row.name))
+}
 
 function rowClass(row: main.DisplayRowDTO, idx: number) {
   return {
@@ -162,6 +189,18 @@ th {
   letter-spacing: 0.6px;
   text-shadow: var(--glow-primary);
 }
+
+.drag-handle {
+  color: var(--cp-dim);
+  cursor: grab;
+  font-size: 14px;
+  display: block;
+  text-align: center;
+  transition: color 0.15s;
+}
+.drag-handle:hover { color: var(--cp-focus); }
+.drag-handle:active { cursor: grabbing; color: var(--cp-primary); }
+.drag-handle--hidden { visibility: hidden; cursor: default; }
 
 .row-clickable { cursor: pointer; }
 .row-clickable:hover td { background: rgba(255,255,255,0.03); }

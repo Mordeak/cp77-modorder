@@ -8,6 +8,7 @@
         @apply="store.showApplyDialog = true"
         @conflicts="store.showConflictGraph = true"
         @group="wails.groupConflicts()"
+        @restore="store.showRestoreDialog = true"
       />
       <PathBar
         v-model="store.modDir"
@@ -54,6 +55,10 @@
       :mods="store.newConflictingMods"
       @close="onConflictResolutionClose"
     />
+    <RestoreDialog
+      v-if="store.showRestoreDialog"
+      @close="store.showRestoreDialog = false"
+    />
   </div>
 </template>
 
@@ -69,6 +74,7 @@ import DetailPanel from './components/DetailPanel.vue'
 import ConflictGraph from './components/ConflictGraph.vue'
 import ApplyDialog from './components/ApplyDialog.vue'
 import ConflictResolutionDialog from './components/ConflictResolutionDialog.vue'
+import RestoreDialog from './components/RestoreDialog.vue'
 
 const store = useAppStore()
 const wails = useWails()
