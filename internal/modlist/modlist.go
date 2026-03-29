@@ -23,7 +23,7 @@ func Write(dir string, mods []*conflict.ModInfo) error {
 		if err := os.MkdirAll(backupDir, 0o755); err != nil {
 			return fmt.Errorf("create modlist.old: %w", err)
 		}
-		ts := time.Now().Format("20060102-150405")
+		ts := time.Now().Format("2006-01-02_15-04-05")
 		backup := filepath.Join(backupDir, "modlist.txt."+ts)
 		if err := os.Rename(dest, backup); err != nil {
 			return fmt.Errorf("backup modlist.txt: %w", err)
