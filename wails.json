@@ -10,6 +10,13 @@
   "wailsjs:dir": "frontend/wailsjs",
   "version": "2",
   "assetdir": "frontend/dist",
+  "info": {
+    "companyName": "Mordeak",
+    "productName": "CP77 Mod Order",
+    "productVersion": "0.3.0",
+    "copyright": "© 2025 Mordeak",
+    "comments": "Cyberpunk 2077 .archive mod conflict manager"
+  },
   "platforms": [
     { "os": "windows", "arch": "amd64", "ldflags": "-H windowsgui" }
   ]
