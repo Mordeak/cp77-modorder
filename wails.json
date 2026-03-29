@@ -1,0 +1,16 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "cp77-modorder",
+  "outputfilename": "CP77-modorder",
+  "frontend:dir": "frontend",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "http://localhost:5173",
+  "wailsjs:dir": "frontend/wailsjs",
+  "version": "2",
+  "assetdir": "frontend/dist",
+  "platforms": [
+    { "os": "windows", "arch": "amd64", "ldflags": "-H windowsgui" }
+  ]
+}

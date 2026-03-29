@@ -1,0 +1,205 @@
+// Package archive parses RDAR .archive files to extract file hash indexes.
+package archive
+
+import (
+	"encoding/binary"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// Archive represents a single .archive file and its internal file list.
+type Archive struct {
+	Name       string            // filename without directory, e.g. "my_mod.archive"
+	Path       string            // absolute path on disk
+	FileHashes []uint64          // FNV1a-64 hashes of all internal resources
+	FilePaths  map[uint64]string // hash → resource path from LXRS footer; nil if absent
+}
+
+// magic bytes at the start of a valid RDAR archive (Cyberpunk 2077).
+var magic = [4]byte{'R', 'D', 'A', 'R'}
+
+// Scan walks dir and parses every .archive file found.
+// Non-fatal parse errors are logged to stderr and skipped.
+func Scan(dir string) ([]*Archive, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("read dir %s: %w", dir, err)
+	}
+
+	var archives []*Archive
+	for _, e := range entries {
+		if e.IsDir() || !strings.EqualFold(filepath.Ext(e.Name()), ".archive") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		a, err := parse(path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "archive: skip %s: %v\n", e.Name(), err)
+			continue
+		}
+		archives = append(archives, a)
+	}
+	return archives, nil
+}
+
+// parse reads the RED4 index from a single .archive file.
+//
+// Header (little-endian):
+//
+//	0x00  [4]byte  magic "RDAR"
+//	0x04  uint32   version
+//	0x08  uint64   indexOffset
+//
+// Index table at indexOffset:
+//
+//	0x00  uint32  fileTableOffset  (always 8)
+//	0x04  uint32  fileTableSize
+//	0x08  uint64  crc
+//	0x10  uint32  fileEntryCount   ← actual file count
+//	0x14  uint32  segmentCount
+//	0x18  uint32  resourceDepCount
+//
+// Each FileEntry (56 bytes):
+//
+//	0x00  uint64    nameHash64
+//	0x08  uint64    timestamp
+//	0x10  uint32    numInlineBufferSegments
+//	0x14  uint32    segmentsStart
+//	0x18  uint32    segmentsEnd
+//	0x1C  uint32    resourceDependenciesStart
+//	0x20  uint32    resourceDependenciesEnd
+//	0x24  [20]byte  sha1Hash
+func parse(path string) (*Archive, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var hdr struct {
+		Magic       [4]byte
+		Version     uint32
+		IndexOffset uint64
+	}
+	if err := binary.Read(f, binary.LittleEndian, &hdr); err != nil {
+		return nil, fmt.Errorf("read header: %w", err)
+	}
+	if hdr.Magic != magic {
+		return nil, fmt.Errorf("not a RED4 archive (magic %x)", hdr.Magic)
+	}
+
+	if _, err := f.Seek(int64(hdr.IndexOffset), io.SeekStart); err != nil {
+		return nil, fmt.Errorf("seek to index: %w", err)
+	}
+
+	// Index table header — 28 bytes. FileEntryCount is at offset 0x10 within it.
+	var idxHdr struct {
+		FileTableOffset  uint32
+		FileTableSize    uint32
+		CRC              uint64
+		FileEntryCount   uint32
+		SegmentCount     uint32
+		ResourceDepCount uint32
+	}
+	if err := binary.Read(f, binary.LittleEndian, &idxHdr); err != nil {
+		return nil, fmt.Errorf("read index header: %w", err)
+	}
+
+	// Read each 56-byte FileEntry; only the name hash is needed.
+	var entry struct {
+		NameHash64               uint64
+		Timestamp                uint64
+		NumInlineBufferSegments  uint32
+		SegmentsStart            uint32
+		SegmentsEnd              uint32
+		ResourceDependenciesStart uint32
+		ResourceDependenciesEnd  uint32
+		SHA1Hash                 [20]byte
+	}
+	hashes := make([]uint64, 0, idxHdr.FileEntryCount)
+	for i := uint32(0); i < idxHdr.FileEntryCount; i++ {
+		if err := binary.Read(f, binary.LittleEndian, &entry); err != nil {
+			return nil, fmt.Errorf("read file entry %d: %w", i, err)
+		}
+		hashes = append(hashes, entry.NameHash64)
+	}
+
+	filePaths := parseLXRS(f) // nil when absent or malformed
+
+	return &Archive{
+		Name:       filepath.Base(path),
+		Path:       path,
+		FileHashes: hashes,
+		FilePaths:  filePaths,
+	}, nil
+}
+
+// parseLXRS attempts to read the optional LXRS footer at file offset 0xAC.
+// Returns nil on any error — non-fatal, caller falls back to hex hashes.
+func parseLXRS(f *os.File) map[uint64]string {
+	const lxrsOffset = 0xAC
+
+	if _, err := f.Seek(lxrsOffset, io.SeekStart); err != nil {
+		return nil
+	}
+
+	var hdr struct {
+		Magic       [4]byte
+		Version     uint32
+		StringCount uint32
+		Reserved    uint32
+	}
+	if err := binary.Read(f, binary.LittleEndian, &hdr); err != nil {
+		return nil
+	}
+	if hdr.Magic != [4]byte{'L', 'X', 'R', 'S'} || hdr.Version != 1 || hdr.StringCount == 0 {
+		return nil
+	}
+
+	paths := make(map[uint64]string, hdr.StringCount)
+	for i := uint32(0); i < hdr.StringCount; i++ {
+		s, err := readNullTermString(f)
+		if err != nil {
+			break
+		}
+		if s != "" {
+			paths[fnv1a64(s)] = s
+		}
+	}
+	if len(paths) == 0 {
+		return nil
+	}
+	return paths
+}
+
+// readNullTermString reads bytes until a null terminator or EOF.
+func readNullTermString(r io.Reader) (string, error) {
+	var buf []byte
+	b := make([]byte, 1)
+	for {
+		if _, err := r.Read(b); err != nil {
+			return "", err
+		}
+		if b[0] == 0 {
+			return string(buf), nil
+		}
+		buf = append(buf, b[0])
+	}
+}
+
+// fnv1a64 computes the FNV-1a 64-bit hash of s.
+func fnv1a64(s string) uint64 {
+	const (
+		offset64 = uint64(14695981039346656037)
+		prime64  = uint64(1099511628211)
+	)
+	h := offset64
+	for i := 0; i < len(s); i++ {
+		h ^= uint64(s[i])
+		h *= prime64
+	}
+	return h
+}

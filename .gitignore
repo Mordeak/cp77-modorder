@@ -1,0 +1,14 @@
+# Build output
+*.exe
+build/bin/
+
+# Go
+vendor/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/wailsjs/
+
+# Wails dev temp
+*.syso

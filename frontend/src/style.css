@@ -1,0 +1,98 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --cp-bg:       #0D0D0D;
+  --cp-bg2:      #1A1A1A;
+  --cp-fg:       #EEEEEE;
+  --cp-dim:      #888888;
+  --cp-primary:  #F0C000;
+  --cp-focus:    #00E5FF;
+  --cp-error:    #FF3366;
+  --cp-success:  #39FF14;
+  --cp-button:   #1A1A1A;
+  --cp-input:    #1A1A1A;
+  --cp-border:   #2A2A2A;
+
+  --cp-row-selected: rgba(0, 229, 255, 0.20);
+  --cp-row-conflict: rgba(255, 51, 102, 0.10);
+  --cp-row-missing:  rgba(255, 51, 102, 0.09);
+  --cp-row-new:      rgba(240, 192, 0, 0.09);
+  --cp-dnd-drag:     rgba(240, 192, 0, 0.33);
+  --cp-dnd-anchor:   rgba(0, 229, 255, 0.20);
+}
+
+html, body, #app {
+  height: 100%;
+  background: var(--cp-bg);
+  color: var(--cp-fg);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+button {
+  background: var(--cp-button);
+  color: var(--cp-fg);
+  border: 1px solid var(--cp-border);
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 2px;
+}
+button:hover { border-color: var(--cp-primary); color: var(--cp-primary); }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { background: var(--cp-primary); color: #000; border-color: var(--cp-primary); }
+button.primary:hover { filter: brightness(1.15); }
+
+input[type="text"], input[type="search"] {
+  background: var(--cp-input);
+  color: var(--cp-fg);
+  border: 1px solid var(--cp-border);
+  padding: 4px 8px;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+}
+input:focus { border-color: var(--cp-focus); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--cp-bg); }
+::-webkit-scrollbar-thumb { background: var(--cp-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cp-dim); }
+
+/* Dialog */
+dialog {
+  background: var(--cp-bg2);
+  color: var(--cp-fg);
+  border: 1px solid var(--cp-border);
+  padding: 0;
+  border-radius: 4px;
+  min-width: 360px;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+dialog::backdrop { background: rgba(0,0,0,0.7); }
+
+.dialog-header {
+  padding: 12px 16px;
+  background: var(--cp-button);
+  border-bottom: 1px solid var(--cp-border);
+  font-weight: 600;
+  color: var(--cp-primary);
+}
+.dialog-body { padding: 12px 16px; overflow-y: auto; }
+.dialog-footer {
+  padding: 8px 16px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--cp-border);
+}
+
+/* Utility */
+.text-error   { color: var(--cp-error); }
+.text-success { color: var(--cp-success); }
+.text-primary { color: var(--cp-primary); }
+.text-dim     { color: var(--cp-dim); }
+.mono         { font-family: 'Consolas', monospace; font-size: 11px; }
