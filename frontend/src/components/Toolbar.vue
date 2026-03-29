@@ -4,6 +4,7 @@
     <button @click="$emit('rescan')" title="Rescan">🔄</button>
     <button @click="$emit('apply')" :disabled="!hasResult" title="Apply — write modlist.txt">💾</button>
     <button @click="$emit('conflicts')" :disabled="!hasResult" title="Conflict graph">ℹ️</button>
+    <button @click="$emit('group')" :disabled="!hasResult" title="Group related mods together">🔗</button>
   </div>
 </template>
 
@@ -14,6 +15,7 @@ defineEmits<{
   'rescan': []
   'apply': []
   'conflicts': []
+  'group': []
 }>()
 </script>
 

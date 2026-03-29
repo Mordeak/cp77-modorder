@@ -7,6 +7,7 @@
         @rescan="onRescan"
         @apply="store.showApplyDialog = true"
         @conflicts="store.showConflictGraph = true"
+        @group="wails.groupConflicts()"
       />
       <PathBar
         v-model="store.modDir"

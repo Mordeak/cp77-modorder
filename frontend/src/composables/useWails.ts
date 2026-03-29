@@ -76,8 +76,18 @@ export function useWails() {
     return App.GetConflictGroup(name)
   }
 
+  async function groupConflicts() {
+    try {
+      const result = await App.GroupConflicts()
+      store.updateScanResult(result)
+    } catch (e: any) {
+      store.scanError = String(e)
+    }
+  }
+
   return {
     registerEvents, loadConfig, pickFolder, runScan,
     setPriority, reorderGroup, writeModlist, getApplyPreview, getConflictGroup,
+    groupConflicts,
   }
 }

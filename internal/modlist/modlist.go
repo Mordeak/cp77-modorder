@@ -14,7 +14,8 @@ import (
 // Write writes modlist.txt to dir, one archive name per line in load order.
 // The first entry loads first and wins all conflicts.
 // Any existing modlist.txt is backed up into a modlist.old subfolder before overwriting.
-func Write(dir string, mods []*conflict.ModInfo) error {
+// tag is appended to the backup filename when non-empty (e.g. "re-order").
+func Write(dir string, mods []*conflict.ModInfo, tag string) error {
 	dest := filepath.Join(dir, "modlist.txt")
 
 	// Back up existing file into modlist.old/.
@@ -24,8 +25,11 @@ func Write(dir string, mods []*conflict.ModInfo) error {
 			return fmt.Errorf("create modlist.old: %w", err)
 		}
 		ts := time.Now().Format("2006-01-02_15-04-05")
-		backup := filepath.Join(backupDir, "modlist.txt."+ts)
-		if err := os.Rename(dest, backup); err != nil {
+		backupName := "modlist.txt." + ts
+		if tag != "" {
+			backupName += "." + tag
+		}
+		if err := os.Rename(dest, filepath.Join(backupDir, backupName)); err != nil {
 			return fmt.Errorf("backup modlist.txt: %w", err)
 		}
 	}

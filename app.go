@@ -115,7 +115,7 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 		alpha := make([]*conflict.ModInfo, len(a.result.Mods))
 		copy(alpha, a.result.Mods)
 		sort.Slice(alpha, func(i, j int) bool { return alpha[i].Name < alpha[j].Name })
-		if err := modlist.Write(dir, alpha); err == nil {
+		if err := modlist.Write(dir, alpha, ""); err == nil {
 			order = make([]string, len(alpha))
 			for i, m := range alpha {
 				order[i] = m.Name
@@ -277,8 +277,9 @@ func (a *App) GetApplyPreview() (ApplyPreviewDTO, error) {
 	if a.result == nil {
 		return ApplyPreviewDTO{}, fmt.Errorf("no scan results — run a scan first")
 	}
-	names := make([]string, len(a.result.Mods))
-	for i, m := range a.result.Mods {
+	mods := a.modsInDisplayOrder()
+	names := make([]string, len(mods))
+	for i, m := range mods {
 		names[i] = m.Name
 	}
 	return ApplyPreviewDTO{Names: names}, nil
@@ -292,7 +293,32 @@ func (a *App) WriteModlist() error {
 	if a.modDir == "" {
 		return fmt.Errorf("no mod directory set")
 	}
-	return modlist.Write(a.modDir, a.result.Mods)
+	return modlist.Write(a.modDir, a.modsInDisplayOrder(), "")
+}
+
+// modsInDisplayOrder returns mods in the order the UI shows them:
+// modlistOrder entries first (skipping missing), then any unlisted mods.
+// Falls back to result.Mods when no modlist is loaded.
+func (a *App) modsInDisplayOrder() []*conflict.ModInfo {
+	if len(a.modlistOrder) == 0 {
+		return a.result.Mods
+	}
+	modByName := make(map[string]*conflict.ModInfo, len(a.result.Mods))
+	for _, m := range a.result.Mods {
+		modByName[m.Name] = m
+	}
+	mods := make([]*conflict.ModInfo, 0, len(a.result.Mods))
+	for _, n := range a.modlistOrder {
+		if m, ok := modByName[n]; ok {
+			mods = append(mods, m)
+		}
+	}
+	for _, m := range a.result.Mods {
+		if !a.modlistSet[m.Name] {
+			mods = append(mods, m)
+		}
+	}
+	return mods
 }
 
 // ---- Private helpers -------------------------------------------------------
@@ -403,6 +429,145 @@ func (a *App) readModlistOrder(dir string) ([]string, error) {
 		}
 	}
 	return names, nil
+}
+
+// GroupConflicts moves each connected conflict component into a contiguous block
+// at the position of the component's last member in the current list.
+// Relative order within the component is preserved. Non-related mods are untouched.
+// A "re-order"-tagged backup of the current modlist.txt is written first.
+func (a *App) GroupConflicts() (ScanResultDTO, error) {
+	if a.result == nil {
+		return ScanResultDTO{}, fmt.Errorf("no scan results — run a scan first")
+	}
+	if a.modDir == "" {
+		return ScanResultDTO{}, fmt.Errorf("no mod directory set")
+	}
+
+	components := a.conflictComponents()
+	if len(components) == 0 {
+		return a.buildScanResult(), nil
+	}
+
+	modByName := make(map[string]*conflict.ModInfo, len(a.result.Mods))
+	for _, m := range a.result.Mods {
+		modByName[m.Name] = m
+	}
+
+	order := make([]string, len(a.modlistOrder))
+	copy(order, a.modlistOrder)
+
+	for _, comp := range components {
+		// Build set of names present in the current order.
+		compSet := make(map[string]bool, len(comp))
+		for _, m := range comp {
+			if _, inOrder := indexOf(order, m.Name); inOrder {
+				compSet[m.Name] = true
+			}
+		}
+		if len(compSet) < 2 {
+			continue
+		}
+
+		// Find the group member whose name is last alphabetically — that is the anchor.
+		var alphaLast string
+		for n := range compSet {
+			if n > alphaLast {
+				alphaLast = n
+			}
+		}
+		anchorPos, _ := indexOf(order, alphaLast)
+
+		// Collect group members in their current relative order.
+		var groupInOrder []string
+		for _, n := range order {
+			if compSet[n] {
+				groupInOrder = append(groupInOrder, n)
+			}
+		}
+
+		// Rebuild: walk the list, skip group members, insert the whole group at anchorPos.
+		newOrder := make([]string, 0, len(order))
+		for i, n := range order {
+			if compSet[n] {
+				if i == anchorPos {
+					newOrder = append(newOrder, groupInOrder...)
+				}
+				// else drop — already captured in groupInOrder
+			} else {
+				newOrder = append(newOrder, n)
+			}
+		}
+		order = newOrder
+	}
+
+	mods := make([]*conflict.ModInfo, 0, len(order))
+	for _, n := range order {
+		if m, ok := modByName[n]; ok {
+			mods = append(mods, m)
+		}
+	}
+	if err := modlist.Write(a.modDir, mods, "re-order"); err != nil {
+		return ScanResultDTO{}, fmt.Errorf("write grouped modlist: %w", err)
+	}
+
+	a.modlistOrder = order
+	a.modlistSet = make(map[string]bool, len(order))
+	for _, n := range order {
+		a.modlistSet[n] = true
+	}
+
+	return a.buildScanResult(), nil
+}
+
+// indexOf returns the index of name in slice and whether it was found.
+func indexOf(slice []string, name string) (int, bool) {
+	for i, n := range slice {
+		if n == name {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
+// conflictComponents returns all connected components of the conflict graph.
+// Each component is a slice of mods that are transitively connected by conflicts.
+func (a *App) conflictComponents() [][]*conflict.ModInfo {
+	adj := make(map[*conflict.ModInfo]map[*conflict.ModInfo]bool)
+	for _, ce := range a.result.Conflicts {
+		for _, m := range ce.Mods {
+			if adj[m] == nil {
+				adj[m] = make(map[*conflict.ModInfo]bool)
+			}
+			for _, other := range ce.Mods {
+				if other != m {
+					adj[m][other] = true
+				}
+			}
+		}
+	}
+	seen := make(map[*conflict.ModInfo]bool)
+	var components [][]*conflict.ModInfo
+	for _, m := range a.result.Mods {
+		if seen[m] || len(adj[m]) == 0 {
+			continue
+		}
+		var comp []*conflict.ModInfo
+		queue := []*conflict.ModInfo{m}
+		seen[m] = true
+		for len(queue) > 0 {
+			cur := queue[0]
+			queue = queue[1:]
+			comp = append(comp, cur)
+			for nb := range adj[cur] {
+				if !seen[nb] {
+					seen[nb] = true
+					queue = append(queue, nb)
+				}
+			}
+		}
+		components = append(components, comp)
+	}
+	return components
 }
 
 // conflictGroup returns all mods that share at least one conflicting resource with m,
