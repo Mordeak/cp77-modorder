@@ -110,6 +110,18 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 	a.pathMap = pathMap
 
 	order, _ := a.readModlistOrder(dir)
+	if len(order) == 0 {
+		// No modlist.txt yet — create one with archives sorted alphabetically.
+		alpha := make([]*conflict.ModInfo, len(a.result.Mods))
+		copy(alpha, a.result.Mods)
+		sort.Slice(alpha, func(i, j int) bool { return alpha[i].Name < alpha[j].Name })
+		if err := modlist.Write(dir, alpha); err == nil {
+			order = make([]string, len(alpha))
+			for i, m := range alpha {
+				order[i] = m.Name
+			}
+		}
+	}
 	a.modlistOrder = order
 	a.modlistSet = make(map[string]bool, len(order))
 	for _, n := range order {
