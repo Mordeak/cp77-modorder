@@ -1,195 +1,174 @@
-# cp77-modorder — GUI Edition
-Cyberpunk 2077 .archive conflict manager with priority-based auto load order.
-GUI built with Fyne v2, targeting Windows (amd64) as the primary platform.
+# cp77-conflict — Cyberpunk 2077 Mod Conflict Manager
+
+Detects hash conflicts between `.archive` mods and manages the `modlist.txt` load order.
+Built with **Wails v2** (Go backend + Vue 3 frontend), targeting Windows amd64.
 
 ## Project layout
+
 ```
-cp77-modorder-gui/
-├── CLAUDE.md
-├── go.mod
-├── main.go                        # Entry point: app init, window creation
+cp77-conflict/
+├── main.go                        # Wails app init; embeds frontend/dist
+├── app.go                         # All Go methods bound to JS (App struct)
+├── dto.go                         # Data transfer objects for IPC
+├── wails.json                     # Wails project config
+├── Makefile                       # Build automation
 ├── internal/
-│   ├── archive/archive.go         # RED4 binary parser (DO NOT MODIFY logic)
-│   ├── conflict/conflict.go       # Conflict detection + priority sort (DO NOT MODIFY logic)
-│   ├── config/config.go           # JSON persistence (DO NOT MODIFY logic)
-│   └── modlist/modlist.go         # modlist.txt writer (DO NOT MODIFY logic)
-└── gui/
-    ├── app.go                     # Root Fyne app + window wiring
-    ├── theme.go                   # Custom Cyberpunk-inspired Fyne theme
-    ├── modlist_view.go            # Main mod list panel (left pane)
-    ├── detail_view.go             # Conflict detail panel (right pane)
-    ├── conflict_view.go           # Full conflict graph tab
-    ├── apply_view.go              # Apply / write modlist.txt tab
-    └── widgets/
-        ├── priority_badge.go      # Small coloured badge showing priority
-        └── conflict_bar.go        # Win/Lose bar widget
+│   ├── archive/archive.go         # RDAR binary parser (FNV-1a hashes + LXRS paths)
+│   ├── conflict/conflict.go       # Conflict detection + priority sort
+│   ├── config/config.go           # JSON persistence (%APPDATA%/cp77-modorder)
+│   └── modlist/modlist.go         # modlist.txt writer with timestamped backups
+└── frontend/
+    ├── src/
+    │   ├── App.vue                # Root layout (split panel + dialogs)
+    │   ├── main.ts                # Vue + Pinia entry point
+    │   ├── style.css              # Global CSS variables (--cp-* theme tokens)
+    │   ├── utils.ts               # truncate() and other helpers
+    │   ├── components/
+    │   │   ├── ModListTable.vue   # Mod list (vuedraggable + filter/search)
+    │   │   ├── DetailPanel.vue    # Right pane: selected mod detail
+    │   │   ├── Toolbar.vue        # Top action buttons
+    │   │   ├── PathBar.vue        # Folder path + scan controls
+    │   │   ├── StatusBar.vue      # Bottom summary line
+    │   │   ├── ConflictGraph.vue  # Modal: all conflicts table
+    │   │   ├── ApplyDialog.vue    # Modal: preview + write modlist.txt
+    │   │   ├── ConflictResolutionDialog.vue  # Modal: handle new conflicting mods
+    │   │   ├── RestoreDialog.vue  # Modal: restore modlist backup
+    │   │   ├── LoadOrderDnd.vue   # Drag-and-drop subcomponent for conflict groups
+    │   │   └── PriorityBadge.vue  # Small badge showing priority number
+    │   ├── composables/
+    │   │   └── useWails.ts        # Wraps all Go IPC calls + registers events
+    │   └── stores/
+    │       └── app.ts             # Pinia store (global scan result, selection, dialogs)
+    ├── wailsjs/                   # Auto-generated Wails JS bindings (do not edit)
+    │   ├── go/main/App.js / App.d.ts
+    │   └── go/models.ts
+    ├── vite.config.ts
+    ├── tsconfig.json
+    └── package.json
 ```
-Copy the four internal/ packages verbatim from the TUI project — they have no TUI dependencies and require zero changes.
 
 ## Dependencies
-- `fyne.io/fyne/v2 v2.5.x`
-- Add nothing else. Do not add a web renderer, CGO-heavy libs, or anything that complicates cross-compilation to Windows.
 
-## go.mod bootstrap
-```
-module github.com/Mordeak/cp77-modorder-gui
+**Go:**
+- `github.com/wailsapp/wails/v2 v2.12.0`
 
-go 1.22
+**Frontend (package.json):**
+- Vue 3.4, Pinia 2.1, vuedraggable 4.1
+- Vite 5.2, TypeScript 5.3, vue-tsc
 
-require fyne.io/fyne/v2 v2.5.3
-```
-After writing go.mod, run:
-```bash
-go mod tidy
-```
+Do not add CGO-heavy libs, web renderers, or anything that complicates Windows cross-compilation.
 
 ## Build instructions
-```bash
-# Local build (runs on current OS)
-go build -o cp77-modorder-gui.exe ./main.go
 
-# Windows cross-compile from Linux
-GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc \
-  go build -ldflags="-H windowsgui" -o cp77-modorder-gui.exe ./main.go
+```bash
+# Dev mode (hot-reload frontend + Go IPC)
+make dev          # or: wails dev
+
+# Release build
+make build        # or: wails build -platform windows/amd64 -o CP77-modorder.exe -trimpath -ldflags="-s -w"
+
+# Regenerate Wails JS bindings after changing App struct methods
+make generate     # or: wails generate module
+
+# Dependency hygiene
+make tidy         # go mod tidy + npm install
 ```
-The `-H windowsgui` linker flag suppresses the console window on Windows — always include it in release builds.
+
+CGO is required. The Makefile sets `CC=C:/msys64/ucrt64/bin/gcc.exe`. The `-H windowsgui` flag is applied automatically by Wails via `wails.json` platforms config.
+
+## Architecture
+
+### Go backend — app.go / dto.go
+
+`App` struct holds all mutable state (config, conflict result, modlist order). All exported methods are automatically bound to JavaScript by Wails.
+
+**Public methods (callable from JS via `useWails.ts`):**
+
+| Method | Description |
+|---|---|
+| `GetConfig()` | Returns current mod folder path |
+| `PickFolder()` | Opens native folder picker |
+| `Scan(dir)` | Scans for .archive files, detects conflicts, returns `ScanResultDTO` |
+| `GetApplyPreview()` | Preview of modlist.txt order |
+| `SetPriority(name, p)` | Set priority 1–99 (0 = unset), recomputes, returns updated result |
+| `GetConflictGroup(name)` | Mods sharing conflicts with the named mod |
+| `ReorderConflictGroup(names)` | Reorder a conflict group, preserve global order |
+| `GroupConflicts()` | Cluster connected conflict components together |
+| `SetModlistOrder(names)` | Apply drag-drop order (in-memory until WriteModlist) |
+| `WriteModlist()` | Write modlist.txt to disk (auto-backup to modlist.old/) |
+| `ListBackups()` | List timestamped backups |
+| `RestoreBackup(filename)` | Restore a backup and recompute conflicts |
+
+Events emitted via `runtime.EventsEmit`: `scan:progress`.
+
+### Frontend — Vue 3 + Pinia
+
+**Data flow:**
+1. `useWails.ts` calls a Go method → receives `ScanResultDTO`
+2. Calls `store.setScanResult()` → Pinia updates global state
+3. Components read from the store reactively
+
+**Store (stores/app.ts) key state:**
+- `scanResult` — the current `ScanResultDTO` (rows, conflicts, summary)
+- `selectedIndex` — currently selected row
+- `modDir` — current mod folder
+- Dialog visibility flags
+
+**useWails.ts** is the single point of contact with Go — all IPC goes through it.
+
+## Data transfer objects — dto.go
+
+```go
+ScanResultDTO  { Rows, Conflicts, Summary, HasModlist }
+DisplayRowDTO  { Mod *ModDTO, Name, Unlisted, Missing }
+ModDTO         { Name, FileCount, Priority, ConflictCount, Wins, Losses, ConflictsWith []ConflictPairDTO, HasMore }
+ConflictDTO    { Resource, Mods []string }
+ConflictPairDTO { Opponent, Resource }
+ConflictGroupDTO { Mods []string }
+ApplyPreviewDTO  { Names []string }
+ConfigDTO        { ModDir string }
+```
+
+TypeScript types are auto-generated into `frontend/wailsjs/go/models.ts` — do not edit that file directly.
 
 ## Visual design
 
-### Theme — gui/theme.go
-Implement a custom `fyne.Theme` named `CyberpunkTheme`. Key colours:
+Theme is implemented via CSS custom properties in `frontend/src/style.css`:
 
-| Role | Hex |
-|---|---|
-| Background | #0D0D0D |
-| Foreground / text | #EEEEEE |
-| Primary (accent) | #F0C000 (yellow) |
-| Focus / selection | #00E5FF (cyan) |
-| Error / conflict | #FF3366 (red) |
-| Success / win | #39FF14 (green) |
-| Button | #1A1A1A |
-| Input background | #1A1A1A |
-
-Font: use Fyne's built-in monospace for data rows; default sans-serif elsewhere. Do not bundle external fonts unless asked.
-
-Apply the theme immediately in main.go:
-```go
-a := app.New()
-a.Settings().SetTheme(gui.NewCyberpunkTheme())
-```
-
-## Screen / layout specification
-
-### Main window — gui/app.go
-- Fixed minimum size: 1100 × 650.
-- Layout: `container.NewHSplit` with left pane (mod list) and right pane (detail).
-- HSplit ratio: 60 % left / 40 % right.
-- Bottom: a `widget.Label` status bar showing `result.Summary()`.
-- Top: a `widget.Toolbar` with these actions:
-
-| Icon | Label | Action |
+| Token | Hex | Role |
 |---|---|---|
-| `theme.FolderOpenIcon()` | Open folder | Open native folder picker → scan |
-| `theme.ViewRefreshIcon()` | Rescan | Re-run scan on current dir |
-| `theme.DocumentSaveIcon()` | Apply | Write modlist.txt |
-| `theme.InfoIcon()` | Conflicts | Switch right pane to conflict graph |
+| `--cp-bg` | `#0D0D0D` | Background |
+| `--cp-fg` | `#EEEEEE` | Text |
+| `--cp-primary` | `#F0C000` | Accent / priority |
+| `--cp-focus` | `#00E5FF` | Selection / focus |
+| `--cp-error` | `#FF3366` | Conflicts / losses |
+| `--cp-success` | `#39FF14` | Wins |
+| `--cp-input` | `#1A1A1A` | Input / button background |
+| `--cp-dim` | (muted grey) | Secondary text |
 
-### Left pane — Mod list — gui/modlist_view.go
-Use `widget.NewTable` (not `widget.List`) — it handles large mod counts efficiently.
+## Core logic rules
 
-**Columns**
-
-| # | Header | Width | Content |
-|---|---|---|---|
-| 0 | # | 45 | Load position (1-based) |
-| 1 | Priority | 75 | Priority badge widget or — |
-| 2 | Mod | 340 | Archive name (truncated if >45 chars) |
-| 3 | Files | 65 | Total internal file count |
-| 4 | Conflicts | 90 | Conflict count, red if >0 |
-| 5 | W / L | 90 | Win / Lose counts, coloured |
-
-**Behaviour**
-- Clicking a row selects it and updates the right detail pane.
-- Double-clicking a row opens an `inline dialog.NewForm` for setting the priority:
-  - One `widget.Entry` labelled "Priority (1–99, 0 = unset)".
-  - On confirm: update `ModInfo.Priority`, save config, call `result.ApplyPriorities()`, refresh the table.
-- Rows with `ConflictCount > 0` render the mod name in the conflict colour (#FF3366).
-- The selected row is highlighted with the focus colour (#00E5FF) background.
-- After `ApplyPriorities()` re-sorts the list, scroll the table so the previously selected mod stays visible.
-
-### Right pane — Detail panel — gui/detail_view.go
-Shown when a mod row is selected. Use `container.NewVBox` with:
-
-1. Header: mod name in bold, large text.
-2. Stats grid (`widget.Form`):
-   - Files in archive
-   - Conflicting files (red if > 0)
-   - Wins (green)
-   - Losses (red)
-   - Priority (yellow, editable via button next to it)
-3. Conflict list (`widget.List`): each entry shows:
-   - The competing mod name (red)
-   - The resource path or `0x<hex>` hash (dim, monospace)
-   - Show max 50 entries; if more, append a "…and N more" label.
-4. A "Set Priority" button that opens the same priority form as double-click on the mod list.
-5. A "Clear Priority" button (only enabled when Priority > 0).
-
-### Conflict graph tab — gui/conflict_view.go
-Shown when the toolbar "Conflicts" button is pressed (replaces the right pane content, or opens in a `dialog.NewCustom` — your choice, prefer the dialog for simplicity).
-
-- Title: "Conflict Graph — N conflicting files".
-- A `widget.Table` with columns:
-
-| # | Header | Width | Content |
-|---|---|---|---|
-| 0 | Resource | 420 | Path or `0x<hex>`, monospace, dim |
-| 1 | Mods | 500 | All conflicting mod names joined by ✗, red |
-
-- Scrollable, no row limit.
-- A `widget.SearchEntry` above the table to filter by mod name or resource path (case-insensitive substring).
-
-### Apply dialog — gui/apply_view.go
-Opened by the toolbar "Apply" button as `dialog.NewCustomWithButtons`.
-
-- Shows the full ordered list in a `widget.List` (scrollable):
-  `1. modname.archive, 2. … etc.`
-- Buttons: "Write modlist.txt" (primary) and "Cancel".
-- On success: show `dialog.ShowInformation` — "Done! modlist.txt written. Previous file backed up."
-- On error: show `dialog.ShowError`.
-
-## Core logic rules — NEVER change these
-The four `internal/` packages encode correct game behaviour. Do not alter:
+The four `internal/` packages encode correct game behaviour. Edit carefully and test thoroughly.
 
 1. **Load order semantics**: first entry in modlist.txt loads first and wins conflicts.
-2. **`ApplyPriorities()` sort rules**:
-   - Priority mods first, lower number = earlier load.
-   - Tie-break: higher ConflictCount wins (maximises wins).
+2. **Sort rules in `conflict.go`**:
+   - Priority mods first; lower number = earlier load.
+   - Tie-break: higher ConflictCount (maximises wins).
    - Unset (0) mods go last, sorted alphabetically.
 3. **`modlist.Write()`** always backs up the existing file before overwriting.
-4. **Archive parsing**: reads the RED4 index (FNV1a-64 hashes) starting at `indexOffset`; skip 24 bytes per entry after the hash.
+4. **Archive format**: magic bytes `RDAR`, reads FNV1a-64 hashes from index starting at `indexOffset`; skip 24 bytes per entry after the hash. Optional LXRS footer at offset `0xAC` provides human-readable resource paths.
+5. **Silent parse failures**: one bad archive must not abort the scan — log and continue.
 
 ## State management
-All mutable state lives in `gui/app.go` as fields of an `AppState` struct:
-```go
-type AppState struct {
-    cfg     *config.Config
-    result  *conflict.Result   // nil until first scan
-    modDir  string
-    selected int               // currently selected row index (-1 = none)
-}
-```
-Pass `*AppState` to every view constructor — do not use globals.
-After any operation that changes `result.Mods` order (priority change, rescan), call `modListTable.Refresh()` and update the status bar label.
 
-## Error handling
-- Scan errors (bad directory, unreadable files): `dialog.ShowError(err, window)`.
-- Non-fatal parse failures (one bad archive): log with `fyne.LogError` and continue — do not abort the scan.
-- Config save errors: silent (best-effort persistence).
+All mutable server-side state is owned by the `App` struct in `app.go`. Frontend state lives in the Pinia store (`stores/app.ts`). Do not use globals in either layer.
+
+After any operation that changes mod order or priorities, `app.go` must call `buildScanResult()` and return the new `ScanResultDTO` to the frontend.
 
 ## What NOT to do
-- Do not use `widget.List` for the mod table — use `widget.Table` for performance.
-- Do not embed the TUI bubbletea code; the GUI replaces it entirely.
+
+- Do not edit files under `frontend/wailsjs/` — they are code-generated by `wails generate module`.
 - Do not call `os.Exit` anywhere except `main.go` on fatal startup error.
 - Do not add a splash screen, auto-updater, or telemetry.
-- Do not use `layout.NewGridLayout` for the main split — use `container.NewHSplit`.
-- Do not hard-code the mod directory path — always load from `config.Config.ModDir`.
+- Do not hard-code the mod directory — always load from `config.Config.ModDir`.
+- Do not bypass the DTO layer — Go types must not be exposed directly to JS.
