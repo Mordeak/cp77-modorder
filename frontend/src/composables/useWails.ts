@@ -30,6 +30,15 @@ export function useWails() {
     try {
       const result = await App.Scan(target)
       store.setScanResult(result)
+      if (result.hasModlist) {
+        const newConflicting = result.rows
+          .filter(r => r.unlisted && r.mod && r.mod.conflictCount > 0)
+          .map(r => r.name)
+        if (newConflicting.length > 0) {
+          store.newConflictingMods = newConflicting
+          store.showConflictResolution = true
+        }
+      }
     } catch (e: any) {
       store.scanError = String(e)
     } finally {

@@ -48,6 +48,11 @@
       v-if="store.showApplyDialog"
       @close="store.showApplyDialog = false"
     />
+    <ConflictResolutionDialog
+      v-if="store.showConflictResolution"
+      :mods="store.newConflictingMods"
+      @close="onConflictResolutionClose"
+    />
   </div>
 </template>
 
@@ -62,6 +67,7 @@ import ModListTable from './components/ModListTable.vue'
 import DetailPanel from './components/DetailPanel.vue'
 import ConflictGraph from './components/ConflictGraph.vue'
 import ApplyDialog from './components/ApplyDialog.vue'
+import ConflictResolutionDialog from './components/ConflictResolutionDialog.vue'
 
 const store = useAppStore()
 const wails = useWails()
@@ -89,6 +95,11 @@ async function onScan() {
 
 async function onPick() {
   await wails.pickFolder()
+}
+
+function onConflictResolutionClose() {
+  store.showConflictResolution = false
+  store.newConflictingMods = []
 }
 
 </script>
