@@ -12,7 +12,7 @@
       <template #item="{ element }">
         <div
           class="dnd-row"
-          :class="element === anchorName ? 'dnd-row--anchor' : 'dnd-row--conflict'"
+          :class="rowClass(element)"
         >
           <span class="drag-handle">⠿</span>
           <span class="dnd-name" :title="element">{{ truncate(element, 36) }}</span>
@@ -50,6 +50,13 @@ watch(() => props.anchorName, load)
 async function onReorder() {
   await wails.reorderGroup(localOrder.value)
 }
+
+function rowClass(name: string): string {
+  if (name === props.anchorName) return 'dnd-row--anchor'
+  const anchorIdx = localOrder.value.indexOf(props.anchorName)
+  const idx = localOrder.value.indexOf(name)
+  return idx > anchorIdx ? 'dnd-row--losing' : 'dnd-row--conflict'
+}
 </script>
 
 <style scoped>
@@ -70,6 +77,8 @@ async function onReorder() {
 }
 .dnd-row--conflict { border-left-color: var(--cp-error); }
 .dnd-row--conflict:hover { background: rgba(255,51,102,0.06); }
+.dnd-row--losing { border-left-color: var(--cp-success); }
+.dnd-row--losing:hover { background: rgba(57,255,20,0.05); }
 .drag-handle {
   color: var(--cp-dim);
   cursor: grab;
@@ -81,6 +90,7 @@ async function onReorder() {
 .drag-handle:active { cursor: grabbing; color: var(--cp-primary); text-shadow: var(--glow-primary); }
 .dnd-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dnd-row--conflict .dnd-name { color: var(--cp-error); }
+.dnd-row--losing .dnd-name   { color: var(--cp-success); }
 .dnd-row--anchor .dnd-name   { color: var(--cp-fg); }
 .sortable-drag .dnd-row {
   background: var(--cp-dnd-drag) !important;
