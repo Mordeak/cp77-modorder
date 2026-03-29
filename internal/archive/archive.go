@@ -45,6 +45,65 @@ func Scan(dir string) ([]*Archive, error) {
 	return archives, nil
 }
 
+// ScanMO2 scans an MO2 instance mods directory. For each name in enabledMods it
+// walks the corresponding subfolder recursively for .archive files and merges them
+// into a single logical Archive (union of hashes) named after the mod folder.
+// Non-fatal parse errors are logged to stderr and skipped.
+func ScanMO2(modsDir string, enabledMods []string) ([]*Archive, error) {
+	var result []*Archive
+	for _, modName := range enabledMods {
+		modPath := filepath.Join(modsDir, modName)
+		var found []*Archive
+		_ = filepath.WalkDir(modPath, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return nil // skip unreadable entries
+			}
+			if d.IsDir() || !strings.EqualFold(filepath.Ext(d.Name()), ".archive") {
+				return nil
+			}
+			a, parseErr := parse(path)
+			if parseErr != nil {
+				fmt.Fprintf(os.Stderr, "archive: MO2 skip %s: %v\n", path, parseErr)
+				return nil
+			}
+			found = append(found, a)
+			return nil
+		})
+		if len(found) == 0 {
+			continue
+		}
+		result = append(result, mergeArchives(modName, found))
+	}
+	return result, nil
+}
+
+// mergeArchives combines multiple archives from the same MO2 mod folder into one
+// Archive. Name is the MO2 mod folder name; FileHashes and FilePaths are the union
+// of all constituent archives.
+func mergeArchives(name string, archives []*Archive) *Archive {
+	seen := make(map[uint64]bool)
+	merged := &Archive{
+		Name:      name,
+		Path:      archives[0].Path,
+		FilePaths: make(map[uint64]string),
+	}
+	for _, a := range archives {
+		for _, h := range a.FileHashes {
+			if !seen[h] {
+				seen[h] = true
+				merged.FileHashes = append(merged.FileHashes, h)
+			}
+		}
+		for k, v := range a.FilePaths {
+			merged.FilePaths[k] = v
+		}
+	}
+	if len(merged.FilePaths) == 0 {
+		merged.FilePaths = nil
+	}
+	return merged
+}
+
 // parse reads the RED4 index from a single .archive file.
 //
 // Header (little-endian):

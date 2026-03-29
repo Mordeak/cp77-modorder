@@ -15,8 +15,17 @@
         :scanning="store.scanning"
         :progress="store.scanProgress"
         :error="store.scanError"
+        :mod-structure="store.modStructure"
+        :mo2-dir="store.mo2Dir"
+        :mo2-profile="store.mo2Profile"
+        :mo2-profiles="store.mo2Profiles"
         @scan="onScan"
         @pick="onPick"
+        @update:mo2-dir="store.mo2Dir = $event"
+        @update:mo2-profile="store.mo2Profile = $event"
+        @pick-m-o2="onPickMO2"
+        @scan-m-o2="onScanMO2"
+        @load-profiles="wails.getMO2Profiles($event)"
       />
     </div>
 
@@ -82,18 +91,33 @@ const wails = useWails()
 onMounted(async () => {
   wails.registerEvents()
   await wails.loadConfig()
-  if (store.modDir) {
+  if (store.modStructure === 'MO2') {
+    if (store.mo2Dir) {
+      await wails.getMO2Profiles(store.mo2Dir)
+    }
+    if (store.mo2Dir && store.mo2Profile) {
+      await wails.scanMO2(store.mo2Dir, store.mo2Profile)
+    }
+  } else if (store.modDir) {
     await wails.runScan(store.modDir)
   }
 })
 
 async function onOpenFolder() {
-  const dir = await wails.pickFolder()
-  if (dir) await wails.runScan(dir)
+  if (store.modStructure === 'MO2') {
+    await onPickMO2()
+  } else {
+    const dir = await wails.pickFolder()
+    if (dir) await wails.runScan(dir)
+  }
 }
 
 async function onRescan() {
-  await wails.runScan()
+  if (store.modStructure === 'MO2' && store.mo2Dir && store.mo2Profile) {
+    await wails.scanMO2(store.mo2Dir, store.mo2Profile)
+  } else {
+    await wails.runScan()
+  }
 }
 
 async function onScan() {
@@ -102,6 +126,18 @@ async function onScan() {
 
 async function onPick() {
   await wails.pickFolder()
+}
+
+async function onPickMO2() {
+  const dir = await wails.pickFolder()
+  if (dir) {
+    store.mo2Dir = dir
+    await wails.getMO2Profiles(dir)
+  }
+}
+
+async function onScanMO2() {
+  await wails.scanMO2(store.mo2Dir, store.mo2Profile)
 }
 
 function onConflictResolutionClose() {

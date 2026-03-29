@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Mordeak/cp77-modorder-gui/internal/archive"
 	"github.com/Mordeak/cp77-modorder-gui/internal/conflict"
@@ -26,19 +27,25 @@ type App struct {
 	modlistOrder []string
 	modlistSet   map[string]bool
 	pathMap      map[string]string // "0x<hex>" → human-readable resource path (from LXRS footers)
+	modStructure string            // "default" | "MO2" — set from CLI flag, not persisted
 }
 
 // NewApp creates the App with a loaded config.
-func NewApp() *App {
+// modStructure should be "default" or "MO2" (from the --mod-structure flag).
+func NewApp(modStructure string) *App {
 	cfgPath := config.DefaultPath()
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		cfg = &config.Config{Priorities: make(map[string]int)}
 	}
+	if modStructure == "" {
+		modStructure = "default"
+	}
 	return &App{
-		cfg:     cfg,
-		cfgPath: cfgPath,
-		modDir:  cfg.ModDir,
+		cfg:          cfg,
+		cfgPath:      cfgPath,
+		modDir:       cfg.ModDir,
+		modStructure: modStructure,
 	}
 }
 
@@ -51,7 +58,104 @@ func (a *App) startup(ctx context.Context) {
 
 // GetConfig returns persisted config for use on startup.
 func (a *App) GetConfig() ConfigDTO {
-	return ConfigDTO{ModDir: a.cfg.ModDir}
+	return ConfigDTO{
+		ModDir:       a.cfg.ModDir,
+		ModStructure: a.modStructure,
+		MO2Dir:       a.cfg.MO2Dir,
+		MO2Profile:   a.cfg.MO2Profile,
+	}
+}
+
+// GetMO2Profiles lists the profile names available in an MO2 instance directory.
+func (a *App) GetMO2Profiles(instanceDir string) ([]string, error) {
+	profilesDir := filepath.Join(strings.TrimSpace(instanceDir), "profiles")
+	entries, err := os.ReadDir(profilesDir)
+	if err != nil {
+		return nil, fmt.Errorf("read MO2 profiles dir: %w", err)
+	}
+	var profiles []string
+	for _, e := range entries {
+		if e.IsDir() {
+			profiles = append(profiles, e.Name())
+		}
+	}
+	return profiles, nil
+}
+
+// ScanMO2 reads the enabled mods from an MO2 profile, parses their archives, and
+// returns the full conflict result. The instance dir and profile are saved to config.
+func (a *App) ScanMO2(instanceDir, profile string) (ScanResultDTO, error) {
+	instanceDir = strings.TrimSpace(instanceDir)
+	profile = strings.TrimSpace(profile)
+	if instanceDir == "" {
+		return ScanResultDTO{}, fmt.Errorf("no MO2 instance path provided")
+	}
+	if profile == "" {
+		return ScanResultDTO{}, fmt.Errorf("no profile selected")
+	}
+
+	profileModlist := filepath.Join(instanceDir, "profiles", profile, "modlist.txt")
+	data, err := os.ReadFile(profileModlist)
+	if err != nil {
+		return ScanResultDTO{}, fmt.Errorf("read MO2 profile modlist: %w", err)
+	}
+
+	// Collect enabled mod names in file order (MO2: bottom of list = highest priority).
+	var enabledFileOrder []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "+") {
+			enabledFileOrder = append(enabledFileOrder, line[1:])
+		}
+	}
+	if len(enabledFileOrder) == 0 {
+		return ScanResultDTO{}, fmt.Errorf("no enabled mods found in MO2 profile %q", profile)
+	}
+
+	// Reverse: MO2 bottom = highest priority → first in CP77 load order (first wins).
+	enabledMods := make([]string, len(enabledFileOrder))
+	for i, name := range enabledFileOrder {
+		enabledMods[len(enabledFileOrder)-1-i] = name
+	}
+
+	runtime.EventsEmit(a.ctx, "scan:progress", fmt.Sprintf("Scanning MO2 profile %q — %d enabled mods…", profile, len(enabledMods)))
+
+	modsDir := filepath.Join(instanceDir, "mods")
+	archives, err := archive.ScanMO2(modsDir, enabledMods)
+	if err != nil {
+		return ScanResultDTO{}, err
+	}
+	if len(archives) == 0 {
+		return ScanResultDTO{}, fmt.Errorf("no .archive files found in enabled MO2 mods")
+	}
+
+	a.result = conflict.Detect(archives, a.cfg.Priorities)
+
+	pathMap := make(map[string]string)
+	for _, ar := range archives {
+		for hash, path := range ar.FilePaths {
+			pathMap[fmt.Sprintf("0x%016x", hash)] = path
+		}
+	}
+	a.pathMap = pathMap
+
+	// Use the conflict-sorted order as the initial modlist order.
+	a.modlistOrder = make([]string, len(a.result.Mods))
+	for i, m := range a.result.Mods {
+		a.modlistOrder[i] = m.Name
+	}
+	a.modlistSet = make(map[string]bool, len(a.modlistOrder))
+	for _, n := range a.modlistOrder {
+		a.modlistSet[n] = true
+	}
+
+	a.modDir = modsDir
+	a.cfg.MO2Dir = instanceDir
+	a.cfg.MO2Profile = profile
+	_ = a.cfg.Save(a.cfgPath)
+
+	runtime.EventsEmit(a.ctx, "scan:progress", a.result.Summary())
+	return a.buildScanResult(), nil
 }
 
 // PickFolder opens the native OS folder picker and returns the chosen path.
@@ -320,10 +424,14 @@ func (a *App) GetApplyPreview() (ApplyPreviewDTO, error) {
 
 // ListBackups returns backup filenames from modlist.old/, newest first.
 func (a *App) ListBackups() ([]string, error) {
-	if a.modDir == "" {
+	var backupDir string
+	if a.modStructure == "MO2" && a.cfg.MO2Dir != "" && a.cfg.MO2Profile != "" {
+		backupDir = filepath.Join(a.cfg.MO2Dir, "profiles", a.cfg.MO2Profile, "modlist.old")
+	} else if a.modDir != "" {
+		backupDir = filepath.Join(a.modDir, "modlist.old")
+	} else {
 		return []string{}, nil
 	}
-	backupDir := filepath.Join(a.modDir, "modlist.old")
 	entries, err := os.ReadDir(backupDir)
 	if os.IsNotExist(err) {
 		return []string{}, nil
@@ -369,15 +477,80 @@ func (a *App) RestoreBackup(filename string) (ScanResultDTO, error) {
 	return a.buildScanResult(), nil
 }
 
-// WriteModlist writes modlist.txt to the current mod directory.
+// WriteModlist writes the mod order to disk.
+// In MO2 mode it rewrites the MO2 profile modlist.txt, reordering enabled entries
+// and preserving disabled mods and separators. In default mode it writes modlist.txt.
 func (a *App) WriteModlist() error {
 	if a.result == nil {
 		return fmt.Errorf("no scan results — run a scan first")
+	}
+	if a.modStructure == "MO2" {
+		if a.cfg.MO2Dir == "" || a.cfg.MO2Profile == "" {
+			return fmt.Errorf("MO2 instance or profile not set — run a scan first")
+		}
+		return a.writeMO2Modlist()
 	}
 	if a.modDir == "" {
 		return fmt.Errorf("no mod directory set")
 	}
 	return modlist.Write(a.modDir, a.modsInDisplayOrder(), "")
+}
+
+// writeMO2Modlist rewrites the MO2 profile modlist.txt, preserving disabled mods
+// and separators but replacing the enabled entries with the current result order
+// (reversed, since MO2 is bottom = highest priority).
+func (a *App) writeMO2Modlist() error {
+	profileDir := filepath.Join(a.cfg.MO2Dir, "profiles", a.cfg.MO2Profile)
+	dest := filepath.Join(profileDir, "modlist.txt")
+
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		return fmt.Errorf("read MO2 profile modlist: %w", err)
+	}
+
+	// Backup into modlist.old/ inside the profile dir.
+	backupDir := filepath.Join(profileDir, "modlist.old")
+	if mkErr := os.MkdirAll(backupDir, 0o755); mkErr != nil {
+		return fmt.Errorf("create backup dir: %w", mkErr)
+	}
+	ts := time.Now().Format("2006-01-02_15-04-05")
+	if wErr := os.WriteFile(filepath.Join(backupDir, "modlist.txt."+ts), data, 0o644); wErr != nil {
+		return fmt.Errorf("backup MO2 modlist: %w", wErr)
+	}
+
+	// Parse lines, record the positions of enabled entries.
+	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	var enabledIdx []int
+	for i, line := range lines {
+		if strings.HasPrefix(line, "+") {
+			enabledIdx = append(enabledIdx, i)
+		}
+	}
+
+	// Build new enabled order: current display order reversed (MO2 bottom = highest priority).
+	ordered := a.modsInDisplayOrder()
+	reversedNames := make([]string, len(ordered))
+	for i, m := range ordered {
+		reversedNames[len(ordered)-1-i] = m.Name
+	}
+
+	count := len(enabledIdx)
+	if len(reversedNames) < count {
+		count = len(reversedNames)
+	}
+	for i := 0; i < count; i++ {
+		lines[enabledIdx[i]] = "+" + reversedNames[i]
+	}
+
+	var sb strings.Builder
+	for _, line := range lines {
+		sb.WriteString(line)
+		sb.WriteByte('\n')
+	}
+	return os.WriteFile(dest, []byte(sb.String()), 0o644)
 }
 
 // modsInDisplayOrder returns mods in the order the UI shows them:

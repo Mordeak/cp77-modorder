@@ -15,6 +15,11 @@ export const useAppStore = defineStore('app', () => {
   const showConflictResolution = ref(false)
   const showRestoreDialog = ref(false)
   const newConflictingMods = ref<string[]>([])
+  // MO2
+  const modStructure = ref<'default' | 'MO2'>('default')
+  const mo2Dir = ref('')
+  const mo2Profile = ref('')
+  const mo2Profiles = ref<string[]>([])
 
   // Computed
   const rows = computed(() => scanResult.value?.rows ?? [])
@@ -51,6 +56,7 @@ export const useAppStore = defineStore('app', () => {
   return {
     scanResult, selectedIndex, modDir, scanning, scanProgress, scanError,
     showConflictGraph, showApplyDialog, showConflictResolution, showRestoreDialog, newConflictingMods,
+    modStructure, mo2Dir, mo2Profile, mo2Profiles,
     rows, conflicts, summary, hasResult, selectedMod,
     setScanResult, updateScanResult, selectRow,
   }

@@ -55,5 +55,8 @@ type ApplyPreviewDTO struct {
 
 // ConfigDTO carries persisted user preferences.
 type ConfigDTO struct {
-	ModDir string `json:"modDir"`
+	ModDir       string `json:"modDir"`
+	ModStructure string `json:"modStructure"` // "default" | "MO2"
+	MO2Dir       string `json:"mo2Dir"`
+	MO2Profile   string `json:"mo2Profile"`
 }

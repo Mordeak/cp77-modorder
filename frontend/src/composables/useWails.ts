@@ -14,6 +14,9 @@ export function useWails() {
   async function loadConfig() {
     const cfg = await App.GetConfig()
     store.modDir = cfg.modDir
+    store.modStructure = (cfg.modStructure as 'default' | 'MO2') || 'default'
+    store.mo2Dir = cfg.mo2Dir ?? ''
+    store.mo2Profile = cfg.mo2Profile ?? ''
   }
 
   async function pickFolder(): Promise<string> {
@@ -103,9 +106,37 @@ export function useWails() {
     store.updateScanResult(result)
   }
 
+  async function getMO2Profiles(instanceDir: string): Promise<string[]> {
+    try {
+      const profiles = await App.GetMO2Profiles(instanceDir)
+      store.mo2Profiles = profiles ?? []
+      return store.mo2Profiles
+    } catch (e: any) {
+      store.scanError = String(e)
+      store.mo2Profiles = []
+      return []
+    }
+  }
+
+  async function scanMO2(instanceDir: string, profile: string) {
+    store.scanning = true
+    store.scanError = ''
+    try {
+      const result = await App.ScanMO2(instanceDir, profile)
+      store.mo2Dir = instanceDir
+      store.mo2Profile = profile
+      store.setScanResult(result)
+    } catch (e: any) {
+      store.scanError = String(e)
+    } finally {
+      store.scanning = false
+    }
+  }
+
   return {
     registerEvents, loadConfig, pickFolder, runScan,
     setPriority, reorderGroup, writeModlist, getApplyPreview, getConflictGroup,
     setModlistOrder, groupConflicts, listBackups, restoreBackup,
+    getMO2Profiles, scanMO2,
   }
 }

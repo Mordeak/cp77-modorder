@@ -10,7 +10,9 @@ import (
 // Config holds all persisted user settings.
 type Config struct {
 	ModDir     string         `json:"mod_dir"`
-	Priorities map[string]int `json:"priorities"` // archive name → priority (1-99, 0 = unset)
+	MO2Dir     string         `json:"mo2_dir"`     // MO2 instance root directory
+	MO2Profile string         `json:"mo2_profile"` // last-used MO2 profile name
+	Priorities map[string]int `json:"priorities"`  // archive name → priority (1-99, 0 = unset)
 }
 
 // DefaultPath returns the path to the config file in the user's config dir.
