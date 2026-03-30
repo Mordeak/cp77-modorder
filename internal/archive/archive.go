@@ -7,7 +7,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
+	"sync"
 )
 
 // Archive represents a single .archive file and its internal file list.
@@ -21,60 +24,135 @@ type Archive struct {
 // magic bytes at the start of a valid RDAR archive (Cyberpunk 2077).
 var magic = [4]byte{'R', 'D', 'A', 'R'}
 
-// Scan walks dir and parses every .archive file found.
+// Scan walks dir and parses every .archive file found in parallel.
 // Non-fatal parse errors are logged to stderr and skipped.
+// Results preserve the alphabetical order returned by os.ReadDir.
 func Scan(dir string) ([]*Archive, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("read dir %s: %w", dir, err)
 	}
 
-	var archives []*Archive
+	var paths []string
 	for _, e := range entries {
-		if e.IsDir() || !strings.EqualFold(filepath.Ext(e.Name()), ".archive") {
-			continue
+		if !e.IsDir() && strings.EqualFold(filepath.Ext(e.Name()), ".archive") {
+			paths = append(paths, filepath.Join(dir, e.Name()))
 		}
-		path := filepath.Join(dir, e.Name())
-		a, err := parse(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "archive: skip %s: %v\n", e.Name(), err)
-			continue
-		}
-		archives = append(archives, a)
 	}
-	return archives, nil
+	return parseAll(paths), nil
+}
+
+// parseAll parses each path concurrently (up to runtime.NumCPU() at a time)
+// and returns results in the same order as the input slice.
+// Parse errors are logged to stderr; failed paths are omitted from the result.
+func parseAll(paths []string) []*Archive {
+	type indexed struct {
+		idx int
+		a   *Archive
+	}
+
+	out := make(chan indexed, len(paths))
+	sem := make(chan struct{}, runtime.NumCPU())
+	var wg sync.WaitGroup
+
+	for i, p := range paths {
+		wg.Add(1)
+		i, p := i, p
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			a, err := parse(p)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "archive: skip %s: %v\n", filepath.Base(p), err)
+				return
+			}
+			out <- indexed{i, a}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+
+	results := make([]indexed, 0, len(paths))
+	for r := range out {
+		results = append(results, r)
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].idx < results[j].idx })
+
+	archives := make([]*Archive, len(results))
+	for i, r := range results {
+		archives[i] = r.a
+	}
+	return archives
 }
 
 // ScanMO2 scans an MO2 instance mods directory. For each name in enabledMods it
 // walks the corresponding subfolder recursively for .archive files and merges them
 // into a single logical Archive (union of hashes) named after the mod folder.
+// Mod folders are processed concurrently (up to runtime.NumCPU() at a time).
 // Non-fatal parse errors are logged to stderr and skipped.
+// Results preserve the order of enabledMods.
 func ScanMO2(modsDir string, enabledMods []string) ([]*Archive, error) {
-	var result []*Archive
-	for _, modName := range enabledMods {
-		modPath := filepath.Join(modsDir, modName)
-		var found []*Archive
-		_ = filepath.WalkDir(modPath, func(path string, d os.DirEntry, err error) error {
-			if err != nil {
-				return nil // skip unreadable entries
-			}
-			if d.IsDir() || !strings.EqualFold(filepath.Ext(d.Name()), ".archive") {
-				return nil
-			}
-			a, parseErr := parse(path)
-			if parseErr != nil {
-				fmt.Fprintf(os.Stderr, "archive: MO2 skip %s: %v\n", path, parseErr)
-				return nil
-			}
-			found = append(found, a)
-			return nil
-		})
-		if len(found) == 0 {
-			continue
-		}
-		result = append(result, mergeArchives(modName, found))
+	type indexed struct {
+		idx int
+		a   *Archive
 	}
-	return result, nil
+
+	out := make(chan indexed, len(enabledMods))
+	sem := make(chan struct{}, runtime.NumCPU())
+	var wg sync.WaitGroup
+
+	for i, modName := range enabledMods {
+		wg.Add(1)
+		i, modName := i, modName
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			modPath := filepath.Join(modsDir, modName)
+			var found []*Archive
+			_ = filepath.WalkDir(modPath, func(path string, d os.DirEntry, err error) error {
+				if err != nil {
+					return nil // skip unreadable entries
+				}
+				if d.IsDir() || !strings.EqualFold(filepath.Ext(d.Name()), ".archive") {
+					return nil
+				}
+				a, parseErr := parse(path)
+				if parseErr != nil {
+					fmt.Fprintf(os.Stderr, "archive: MO2 skip %s: %v\n", path, parseErr)
+					return nil
+				}
+				found = append(found, a)
+				return nil
+			})
+			if len(found) == 0 {
+				return
+			}
+			out <- indexed{i, mergeArchives(modName, found)}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+
+	results := make([]indexed, 0, len(enabledMods))
+	for r := range out {
+		results = append(results, r)
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].idx < results[j].idx })
+
+	archives := make([]*Archive, len(results))
+	for i, r := range results {
+		archives[i] = r.a
+	}
+	return archives, nil
 }
 
 // mergeArchives combines multiple archives from the same MO2 mod folder into one

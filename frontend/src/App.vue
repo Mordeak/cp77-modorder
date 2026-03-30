@@ -3,12 +3,14 @@
     <div class="app-top">
       <Toolbar
         :has-result="store.hasResult"
+        :mod-structure="store.modStructure"
         @open-folder="onOpenFolder"
         @rescan="onRescan"
         @apply="store.showApplyDialog = true"
         @conflicts="store.showConflictGraph = true"
         @group="wails.groupConflicts()"
         @restore="store.showRestoreDialog = true"
+        @toggle-mo2="store.modStructure = store.modStructure === 'MO2' ? 'default' : 'MO2'"
       />
       <PathBar
         v-model="store.modDir"
