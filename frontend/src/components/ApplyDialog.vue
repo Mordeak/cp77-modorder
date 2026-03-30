@@ -1,5 +1,5 @@
 <template>
-  <dialog ref="dlg" @cancel.prevent>
+  <dialog ref="dlg" @cancel.prevent @click="onBackdropClick">
     <div class="dialog-header">Apply — Write modlist.txt</div>
     <div class="dialog-body">
       <div v-if="loading" class="text-dim">Loading preview…</div>
@@ -9,7 +9,7 @@
       </ol>
     </div>
     <div class="dialog-footer">
-      <button @click="$emit('close')">Cancel</button>
+      <button @click="$emit('close')">Close</button>
       <button class="primary" @click="doWrite" :disabled="loading || !!writeError">
         Write modlist.txt
       </button>
@@ -23,7 +23,7 @@
 import { ref, onMounted } from 'vue'
 import { useWails } from '../composables/useWails'
 
-defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [] }>()
 
 const wails = useWails()
 const dlg = ref<HTMLDialogElement>()
@@ -44,6 +44,10 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+function onBackdropClick(e: MouseEvent) {
+  if (e.target === dlg.value) emit('close')
+}
 
 async function doWrite() {
   writeError.value = ''

@@ -63,6 +63,7 @@ func (a *App) GetConfig() ConfigDTO {
 		ModStructure: a.modStructure,
 		MO2Dir:       a.cfg.MO2Dir,
 		MO2Profile:   a.cfg.MO2Profile,
+		BackupLimit:  a.cfg.BackupLimit,
 	}
 }
 
@@ -493,7 +494,11 @@ func (a *App) WriteModlist() error {
 	if a.modDir == "" {
 		return fmt.Errorf("no mod directory set")
 	}
-	return modlist.Write(a.modDir, a.modsInDisplayOrder(), "")
+	if err := modlist.Write(a.modDir, a.modsInDisplayOrder(), ""); err != nil {
+		return err
+	}
+	_ = modlist.PruneBackups(filepath.Join(a.modDir, "modlist.old"), a.cfg.EffectiveBackupLimit())
+	return nil
 }
 
 // writeMO2Modlist rewrites the MO2 profile modlist.txt, preserving disabled mods
@@ -517,6 +522,7 @@ func (a *App) writeMO2Modlist() error {
 	if wErr := os.WriteFile(filepath.Join(backupDir, "modlist.txt."+ts), data, 0o644); wErr != nil {
 		return fmt.Errorf("backup MO2 modlist: %w", wErr)
 	}
+	_ = modlist.PruneBackups(backupDir, a.cfg.EffectiveBackupLimit())
 
 	// Parse lines, record the positions of enabled entries.
 	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
@@ -766,6 +772,7 @@ func (a *App) GroupConflicts() (ScanResultDTO, error) {
 	if err := modlist.Write(a.modDir, mods, "re-order"); err != nil {
 		return ScanResultDTO{}, fmt.Errorf("write grouped modlist: %w", err)
 	}
+	_ = modlist.PruneBackups(filepath.Join(a.modDir, "modlist.old"), a.cfg.EffectiveBackupLimit())
 
 	a.modlistOrder = order
 	a.modlistSet = make(map[string]bool, len(order))

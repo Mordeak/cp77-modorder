@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -42,6 +43,38 @@ func Write(dir string, mods []*conflict.ModInfo, tag string) error {
 
 	if err := os.WriteFile(dest, []byte(sb.String()), 0o644); err != nil {
 		return fmt.Errorf("write modlist.txt: %w", err)
+	}
+	return nil
+}
+
+// PruneBackups removes the oldest backup files from backupDir so that at most
+// limit files remain. Files are sorted lexicographically; because backup names
+// embed a timestamp (2006-01-02_15-04-05) the lexicographic order equals
+// chronological order, so the oldest are removed first.
+// A limit of 0 or less is a no-op.
+func PruneBackups(backupDir string, limit int) error {
+	if limit <= 0 {
+		return nil
+	}
+	entries, err := os.ReadDir(backupDir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read backup dir: %w", err)
+	}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	if len(names) <= limit {
+		return nil
+	}
+	sort.Strings(names) // oldest first
+	for _, name := range names[:len(names)-limit] {
+		_ = os.Remove(filepath.Join(backupDir, name))
 	}
 	return nil
 }

@@ -59,4 +59,5 @@ type ConfigDTO struct {
 	ModStructure string `json:"modStructure"` // "default" | "MO2"
 	MO2Dir       string `json:"mo2Dir"`
 	MO2Profile   string `json:"mo2Profile"`
+	BackupLimit  int    `json:"backupLimit"` // 0 = use default (20)
 }
