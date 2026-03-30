@@ -15,7 +15,7 @@
     "productName": "CP77 Mod Order",
     "productVersion": "0.3.0",
     "copyright": "© 2025 Mordeak",
-    "comments": "Cyberpunk 2077 .archive mod conflict manager"
+    "comments": "Cyberpunk 2077 .archive mod conflict manager | Open source: https://github.com/Mordeak/cp77-modorder"
   },
   "windows": {
     "webviewIsFixed": true

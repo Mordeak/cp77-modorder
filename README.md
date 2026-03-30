@@ -82,6 +82,10 @@ The `-H windowsgui` linker flag (set in `wails.json`) suppresses the console win
 5. Click **Group** to automatically consolidate conflicting mods together
 6. Click **Apply** to write `modlist.txt` — the game reads this on startup
 
+## License
+
+MIT — see [LICENSE](LICENSE).
+
 ## Project layout
 
 ```
