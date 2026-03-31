@@ -20,6 +20,7 @@ type ModInfo struct {
 	Name          string // shorthand: Archive.Name
 	FileCount     int
 	Priority      int // 1-99; 0 = unset
+	HasXL         bool
 	ConflictCount int
 	Wins          int
 	Losses        int
@@ -48,6 +49,7 @@ func Detect(archives []*archive.Archive, priorities map[string]int) *Result {
 			Name:      a.Name,
 			FileCount: len(a.FileHashes),
 			Priority:  priorities[a.Name],
+			HasXL:     a.HasXL,
 		}
 	}
 

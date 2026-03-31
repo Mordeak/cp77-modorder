@@ -19,6 +19,7 @@ type Archive struct {
 	Path       string            // absolute path on disk
 	FileHashes []uint64          // FNV1a-64 hashes of all internal resources
 	FilePaths  map[uint64]string // hash → resource path from LXRS footer; nil if absent
+	HasXL      bool              // true when a same-name .xl file exists alongside the archive
 }
 
 // magic bytes at the start of a valid RDAR archive (Cyberpunk 2077).
@@ -33,13 +34,25 @@ func Scan(dir string) ([]*Archive, error) {
 		return nil, fmt.Errorf("read dir %s: %w", dir, err)
 	}
 
+	xlNames := make(map[string]bool)
 	var paths []string
 	for _, e := range entries {
-		if !e.IsDir() && strings.EqualFold(filepath.Ext(e.Name()), ".archive") {
+		if e.IsDir() {
+			continue
+		}
+		switch strings.ToLower(filepath.Ext(e.Name())) {
+		case ".archive":
 			paths = append(paths, filepath.Join(dir, e.Name()))
+		case ".xl":
+			xlNames[e.Name()] = true
 		}
 	}
-	return parseAll(paths), nil
+	archives := parseAll(paths)
+	for _, a := range archives {
+		base := strings.TrimSuffix(a.Name, filepath.Ext(a.Name))
+		a.HasXL = xlNames[base+".xl"]
+	}
+	return archives, nil
 }
 
 // parseAll parses each path concurrently (up to runtime.NumCPU() at a time)
@@ -115,25 +128,33 @@ func ScanMO2(modsDir string, enabledMods []string) ([]*Archive, error) {
 
 			modPath := filepath.Join(modsDir, modName)
 			var found []*Archive
+			var hasXL bool
 			_ = filepath.WalkDir(modPath, func(path string, d os.DirEntry, err error) error {
 				if err != nil {
 					return nil // skip unreadable entries
 				}
-				if d.IsDir() || !strings.EqualFold(filepath.Ext(d.Name()), ".archive") {
+				if d.IsDir() {
 					return nil
 				}
-				a, parseErr := parse(path)
-				if parseErr != nil {
-					fmt.Fprintf(os.Stderr, "archive: MO2 skip %s: %v\n", path, parseErr)
-					return nil
+				switch strings.ToLower(filepath.Ext(d.Name())) {
+				case ".xl":
+					hasXL = true
+				case ".archive":
+					a, parseErr := parse(path)
+					if parseErr != nil {
+						fmt.Fprintf(os.Stderr, "archive: MO2 skip %s: %v\n", path, parseErr)
+						return nil
+					}
+					found = append(found, a)
 				}
-				found = append(found, a)
 				return nil
 			})
 			if len(found) == 0 {
 				return
 			}
-			out <- indexed{i, mergeArchives(modName, found)}
+			merged := mergeArchives(modName, found)
+			merged.HasXL = hasXL
+			out <- indexed{i, merged}
 		}()
 	}
 

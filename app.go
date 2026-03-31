@@ -374,6 +374,28 @@ func (a *App) ReorderConflictGroup(names []string) (ScanResultDTO, error) {
 
 	_ = a.cfg.Save(a.cfgPath)
 	a.result.ApplyPriorities()
+
+	// Sync modlistOrder: keep all non-group entries in place, but redistribute
+	// the slots occupied by group members so they appear in the user's new order.
+	if len(a.modlistOrder) > 0 {
+		nameSet := make(map[string]bool, len(names))
+		for _, n := range names {
+			nameSet[n] = true
+		}
+		var groupSlots []int
+		for i, n := range a.modlistOrder {
+			if nameSet[n] {
+				groupSlots = append(groupSlots, i)
+			}
+		}
+		// Only rearrange when all group members are present in modlistOrder.
+		if len(groupSlots) == len(names) {
+			for i, slot := range groupSlots {
+				a.modlistOrder[slot] = names[i]
+			}
+		}
+	}
+
 	return a.buildScanResult(), nil
 }
 
@@ -671,6 +693,7 @@ func modToDTO(m *conflict.ModInfo, pathMap map[string]string) *ModDTO {
 		ConflictsWith: cw,
 		HasMore:       hasMore,
 		MoreCount:     moreCount,
+		HasXL:         m.HasXL,
 	}
 }
 

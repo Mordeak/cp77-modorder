@@ -17,6 +17,7 @@ type ModDTO struct {
 	ConflictsWith []ConflictPairDTO `json:"conflictsWith"` // capped at 50
 	HasMore       bool              `json:"hasMore"`
 	MoreCount     int               `json:"moreCount"`
+	HasXL         bool              `json:"hasXL"`
 }
 
 // DisplayRowDTO is one row in the mod list table.

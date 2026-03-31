@@ -132,12 +132,15 @@ async function onReorder() {
 }
 
 function rowClass(row: main.DisplayRowDTO, idx: number) {
+  const losses = row.mod?.losses ?? 0
+  const wins   = row.mod?.wins   ?? 0
   return {
-    'row-selected': idx === props.selectedIndex && !row.missing,
-    'row-missing':  row.missing,
-    'row-new':      row.unlisted && !row.missing,
-    'row-conflict': !row.missing && !row.unlisted && (row.mod?.losses ?? 0) > 0,
-    'row-clickable': !row.missing,
+    'row-selected':   idx === props.selectedIndex && !row.missing,
+    'row-missing':    row.missing,
+    'row-new':        row.unlisted && !row.missing,
+    'row-losing-all': !row.missing && !row.unlisted && losses > 0 && wins === 0,
+    'row-conflict':   !row.missing && !row.unlisted && losses > 0 && wins > 0,
+    'row-clickable':  !row.missing,
   }
 }
 </script>
@@ -230,6 +233,7 @@ th {
   background: var(--cp-row-selected) !important;
   border-left: 2px solid var(--cp-focus) !important;
 }
+.row-losing-all td { color: var(--cp-dim); border-left: 2px solid var(--cp-dim); }
 .row-conflict td { background: var(--cp-row-conflict); border-left: 2px solid var(--cp-error); }
 .row-missing td  { background: var(--cp-row-missing); color: var(--cp-dim); cursor: default; }
 .row-new td      { background: var(--cp-row-new); border-left: 2px solid var(--cp-primary); }
