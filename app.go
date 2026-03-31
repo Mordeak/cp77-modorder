@@ -74,12 +74,14 @@ func (a *App) GetMO2Profiles(instanceDir string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read MO2 profiles dir: %w", err)
 	}
+
 	var profiles []string
 	for _, e := range entries {
 		if e.IsDir() {
 			profiles = append(profiles, e.Name())
 		}
 	}
+
 	return profiles, nil
 }
 
@@ -156,6 +158,7 @@ func (a *App) ScanMO2(instanceDir, profile string) (ScanResultDTO, error) {
 	_ = a.cfg.Save(a.cfgPath)
 
 	runtime.EventsEmit(a.ctx, "scan:progress", a.result.Summary())
+
 	return a.buildScanResult(), nil
 }
 
@@ -167,6 +170,7 @@ func (a *App) PickFolder() string {
 	if err != nil {
 		return ""
 	}
+
 	return dir
 }
 
@@ -239,6 +243,7 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 	_ = a.cfg.Save(a.cfgPath)
 
 	runtime.EventsEmit(a.ctx, "scan:progress", a.result.Summary())
+
 	return a.buildScanResult(), nil
 }
 
@@ -263,6 +268,7 @@ func (a *App) SetPriority(name string, p int) (ScanResultDTO, error) {
 	}
 	_ = a.cfg.Save(a.cfgPath)
 	a.result.ApplyPriorities()
+
 	return a.buildScanResult(), nil
 }
 
@@ -287,6 +293,7 @@ func (a *App) GetConflictGroup(name string) (ConflictGroupDTO, error) {
 	for i, m := range group {
 		names[i] = m.Name
 	}
+
 	return ConflictGroupDTO{Mods: names}, nil
 }
 
@@ -340,6 +347,11 @@ func (a *App) ReorderConflictGroup(names []string) (ScanResultDTO, error) {
 	// ordering through 0 alone (sortMods would just re-alphabetise them).
 	// Instead, anchor the group just after the last explicitly-prioritised
 	// non-group mod so they stay at the bottom of the priority zone.
+	groupSet := make(map[string]bool, len(names))
+	for _, name := range names {
+		groupSet[name] = true
+	}
+
 	allZero := true
 	for _, p := range slotPrios {
 		if p != 0 {
@@ -348,10 +360,6 @@ func (a *App) ReorderConflictGroup(names []string) (ScanResultDTO, error) {
 		}
 	}
 	if allZero {
-		groupSet := make(map[string]bool, len(names))
-		for _, name := range names {
-			groupSet[name] = true
-		}
 		maxPrio := 0
 		for _, m := range a.result.Mods {
 			if !groupSet[m.Name] && m.Priority > maxPrio {
@@ -378,17 +386,12 @@ func (a *App) ReorderConflictGroup(names []string) (ScanResultDTO, error) {
 	// Sync modlistOrder: keep all non-group entries in place, but redistribute
 	// the slots occupied by group members so they appear in the user's new order.
 	if len(a.modlistOrder) > 0 {
-		nameSet := make(map[string]bool, len(names))
-		for _, n := range names {
-			nameSet[n] = true
-		}
-		var groupSlots []int
+		groupSlots := make([]int, 0, len(names))
 		for i, n := range a.modlistOrder {
-			if nameSet[n] {
+			if groupSet[n] {
 				groupSlots = append(groupSlots, i)
 			}
 		}
-		// Only rearrange when all group members are present in modlistOrder.
 		if len(groupSlots) == len(names) {
 			for i, slot := range groupSlots {
 				a.modlistOrder[slot] = names[i]
@@ -442,6 +445,7 @@ func (a *App) GetApplyPreview() (ApplyPreviewDTO, error) {
 	for i, m := range mods {
 		names[i] = m.Name
 	}
+
 	return ApplyPreviewDTO{Names: names}, nil
 }
 
@@ -470,6 +474,7 @@ func (a *App) ListBackups() ([]string, error) {
 	}
 	// Newest first (timestamps sort lexicographically, so reverse).
 	sort.Slice(names, func(i, j int) bool { return names[i] > names[j] })
+
 	return names, nil
 }
 
@@ -485,18 +490,22 @@ func (a *App) RestoreBackup(filename string) (ScanResultDTO, error) {
 	if err != nil {
 		return ScanResultDTO{}, fmt.Errorf("read backup: %w", err)
 	}
+
 	if err := os.WriteFile(filepath.Join(a.modDir, "modlist.txt"), data, 0o644); err != nil {
 		return ScanResultDTO{}, fmt.Errorf("write modlist.txt: %w", err)
 	}
+
 	order, err := a.readModlistOrder(a.modDir)
 	if err != nil {
 		return ScanResultDTO{}, fmt.Errorf("reload modlist: %w", err)
 	}
+
 	a.modlistOrder = order
 	a.modlistSet = make(map[string]bool, len(order))
 	for _, n := range order {
 		a.modlistSet[n] = true
 	}
+
 	return a.buildScanResult(), nil
 }
 
@@ -520,6 +529,7 @@ func (a *App) WriteModlist() error {
 		return err
 	}
 	_ = modlist.PruneBackups(filepath.Join(a.modDir, "modlist.old"), a.cfg.EffectiveBackupLimit())
+
 	return nil
 }
 
@@ -578,6 +588,7 @@ func (a *App) writeMO2Modlist() error {
 		sb.WriteString(line)
 		sb.WriteByte('\n')
 	}
+
 	return os.WriteFile(dest, []byte(sb.String()), 0o644)
 }
 
@@ -603,6 +614,7 @@ func (a *App) modsInDisplayOrder() []*conflict.ModInfo {
 			mods = append(mods, m)
 		}
 	}
+
 	return mods
 }
 
@@ -675,6 +687,7 @@ func modToDTO(m *conflict.ModInfo, pathMap map[string]string) *ModDTO {
 		moreCount = len(pairs) - 50
 		pairs = pairs[:50]
 	}
+
 	cw := make([]ConflictPairDTO, len(pairs))
 	for i, p := range pairs {
 		res := p.Resource
@@ -683,6 +696,7 @@ func modToDTO(m *conflict.ModInfo, pathMap map[string]string) *ModDTO {
 		}
 		cw[i] = ConflictPairDTO{Opponent: p.Opponent.Name, Resource: res}
 	}
+
 	return &ModDTO{
 		Name:          m.Name,
 		FileCount:     m.FileCount,
@@ -707,6 +721,7 @@ func (a *App) readModlistOrder(dir string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var names []string
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
@@ -714,6 +729,7 @@ func (a *App) readModlistOrder(dir string) ([]string, error) {
 			names = append(names, line)
 		}
 	}
+
 	return names, nil
 }
 
@@ -813,6 +829,7 @@ func indexOf(slice []string, name string) (int, bool) {
 			return i, true
 		}
 	}
+
 	return -1, false
 }
 
@@ -832,6 +849,7 @@ func (a *App) conflictComponents() [][]*conflict.ModInfo {
 			}
 		}
 	}
+
 	seen := make(map[*conflict.ModInfo]bool)
 	var components [][]*conflict.ModInfo
 	for _, m := range a.result.Mods {
@@ -854,6 +872,7 @@ func (a *App) conflictComponents() [][]*conflict.ModInfo {
 		}
 		components = append(components, comp)
 	}
+
 	return components
 }
 
@@ -879,5 +898,6 @@ func (a *App) conflictGroup(m *conflict.ModInfo) []*conflict.ModInfo {
 	sort.Slice(out, func(i, j int) bool {
 		return posOf[out[i]] < posOf[out[j]]
 	})
+
 	return out
 }

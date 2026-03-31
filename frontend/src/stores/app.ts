@@ -44,7 +44,7 @@ export const useAppStore = defineStore('app', () => {
     const prevName = selectedIndex.value >= 0 ? rows.value[selectedIndex.value]?.name : null
     scanResult.value = result
     if (prevName != null) {
-      const newIdx = result.rows.findIndex(r => r.name === prevName)
+      const newIdx = result.rows.findIndex((r) => r.name === prevName)
       selectedIndex.value = newIdx
     }
   }
@@ -54,10 +54,28 @@ export const useAppStore = defineStore('app', () => {
   }
 
   return {
-    scanResult, selectedIndex, modDir, scanning, scanProgress, scanError,
-    showConflictGraph, showApplyDialog, showConflictResolution, showRestoreDialog, newConflictingMods,
-    modStructure, mo2Dir, mo2Profile, mo2Profiles,
-    rows, conflicts, summary, hasResult, selectedMod,
-    setScanResult, updateScanResult, selectRow,
+    scanResult,
+    selectedIndex,
+    modDir,
+    scanning,
+    scanProgress,
+    scanError,
+    showConflictGraph,
+    showApplyDialog,
+    showConflictResolution,
+    showRestoreDialog,
+    newConflictingMods,
+    modStructure,
+    mo2Dir,
+    mo2Profile,
+    mo2Profiles,
+    rows,
+    conflicts,
+    summary,
+    hasResult,
+    selectedMod,
+    setScanResult,
+    updateScanResult,
+    selectRow,
   }
 })

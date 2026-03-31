@@ -57,13 +57,13 @@ defineProps<{
 }>()
 defineEmits<{
   'update:modelValue': [v: string]
-  'scan': []
-  'pick': []
+  scan: []
+  pick: []
   'update:mo2Dir': [v: string]
   'update:mo2Profile': [v: string]
-  'pickMO2': []
-  'scanMO2': []
-  'loadProfiles': [instanceDir: string]
+  pickMO2: []
+  scanMO2: []
+  loadProfiles: [instanceDir: string]
 }>()
 </script>
 
@@ -73,10 +73,12 @@ defineEmits<{
   align-items: center;
   gap: 6px;
   padding: 5px 8px;
-  background: #0D0D0D;
+  background: #0d0d0d;
   border-bottom: 1px solid var(--cp-border);
 }
-.pathbar input { flex: 1; }
+.pathbar input {
+  flex: 1;
+}
 .profile-select {
   background: var(--cp-input);
   color: var(--cp-fg);
@@ -86,8 +88,12 @@ defineEmits<{
   min-width: 160px;
   outline: none;
 }
-.profile-select:focus { border-color: var(--cp-focus); }
-.profile-select:disabled { color: var(--cp-dim); }
+.profile-select:focus {
+  border-color: var(--cp-focus);
+}
+.profile-select:disabled {
+  color: var(--cp-dim);
+}
 .msg {
   font-size: 10px;
   white-space: nowrap;

@@ -21,12 +21,14 @@ func (c *Config) EffectiveBackupLimit() int {
 	if c.BackupLimit <= 0 {
 		return 20
 	}
+
 	return c.BackupLimit
 }
 
 // DefaultPath returns the path to the config file in the user's config dir.
 func DefaultPath() string {
 	dir, _ := os.UserConfigDir()
+
 	return filepath.Join(dir, "cp77-modorder", "config.json")
 }
 
@@ -41,12 +43,15 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
+
 	if cfg.Priorities == nil {
 		cfg.Priorities = make(map[string]int)
 	}
+
 	return cfg, nil
 }
 
@@ -55,9 +60,11 @@ func (c *Config) Save(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
+
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
+
 	return os.WriteFile(path, data, 0o644)
 }

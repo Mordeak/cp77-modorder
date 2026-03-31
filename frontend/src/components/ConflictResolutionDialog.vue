@@ -1,11 +1,9 @@
 <template>
   <dialog ref="dlg" class="crd-dialog" @cancel.prevent>
-    <div class="dialog-header">
-      New Conflicting Mods — {{ stepIndex + 1 }} of {{ props.mods.length }}
-    </div>
+    <div class="dialog-header">New Conflicting Mods — {{ stepIndex + 1 }} of {{ props.mods.length }}</div>
     <div class="dialog-body">
       <p class="crd-hint">
-        <span class="text-error">{{ currentMod }}</span> conflicts with existing mods.<br/>
+        <span class="text-error">{{ currentMod }}</span> conflicts with existing mods.<br />
         Drag to set the load order — top loads first and wins conflicts.
       </p>
       <LoadOrderDnd :anchor-name="currentMod" />
@@ -46,7 +44,7 @@ function advance() {
 .crd-dialog {
   width: 480px;
   border: 1px solid var(--cp-error);
-  box-shadow: 0 0 30px rgba(255,51,102,0.2);
+  box-shadow: 0 0 30px rgba(255, 51, 102, 0.2);
 }
 .crd-hint {
   font-size: 12px;
@@ -55,6 +53,6 @@ function advance() {
   margin-bottom: 10px;
   padding: 6px 8px;
   border-left: 2px solid var(--cp-error);
-  background: rgba(255,51,102,0.05);
+  background: rgba(255, 51, 102, 0.05);
 }
 </style>

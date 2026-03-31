@@ -10,11 +10,9 @@
     </div>
     <div class="dialog-footer">
       <button @click="$emit('close')">Close</button>
-      <button class="primary" @click="doWrite" :disabled="loading || !!writeError">
-        Write modlist.txt
-      </button>
-      <span v-if="writeError" class="text-error" style="font-size:11px;">{{ writeError }}</span>
-      <span v-if="written" class="text-success" style="font-size:11px;">Done! File written.</span>
+      <button class="primary" @click="doWrite" :disabled="loading || !!writeError">Write modlist.txt</button>
+      <span v-if="writeError" class="text-error" style="font-size: 11px">{{ writeError }}</span>
+      <span v-if="written" class="text-success" style="font-size: 11px">Done! File written.</span>
     </div>
   </dialog>
 </template>
@@ -65,7 +63,7 @@ async function doWrite() {
 dialog {
   width: 520px;
   border: 1px solid var(--cp-primary);
-  box-shadow: 0 0 30px rgba(240,192,0,0.2);
+  box-shadow: 0 0 30px rgba(240, 192, 0, 0.2);
 }
 .preview-list {
   max-height: 55vh;
@@ -76,8 +74,13 @@ dialog {
   font-family: 'Consolas', monospace;
   border: 1px solid var(--cp-border);
   padding: 8px 8px 8px 28px;
-  background: #0D0D0D;
+  background: #0d0d0d;
 }
-.preview-list li { border-bottom: 1px solid var(--cp-border); padding: 1px 0; }
-.preview-list li:last-child { border-bottom: none; }
+.preview-list li {
+  border-bottom: 1px solid var(--cp-border);
+  padding: 1px 0;
+}
+.preview-list li:last-child {
+  border-bottom: none;
+}
 </style>

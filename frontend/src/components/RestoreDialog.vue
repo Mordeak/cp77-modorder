@@ -13,15 +13,15 @@
           :class="{ 'backup-entry--selected': name === selected }"
           @click="selected = name"
           @dblclick="doRestore"
-        >{{ name }}</li>
+        >
+          {{ name }}
+        </li>
       </ul>
     </div>
     <div class="dialog-footer">
       <button @click="$emit('close')">Cancel</button>
-      <button class="primary" @click="doRestore" :disabled="!selected || restoring">
-        Restore
-      </button>
-      <span v-if="restoreError" class="text-error" style="font-size:11px;">{{ restoreError }}</span>
+      <button class="primary" @click="doRestore" :disabled="!selected || restoring">Restore</button>
+      <span v-if="restoreError" class="text-error" style="font-size: 11px">{{ restoreError }}</span>
     </div>
   </dialog>
 </template>
@@ -71,7 +71,7 @@ async function doRestore() {
 dialog {
   width: 520px;
   border: 1px solid var(--cp-primary);
-  box-shadow: 0 0 30px rgba(240,192,0,0.2);
+  box-shadow: 0 0 30px rgba(240, 192, 0, 0.2);
 }
 .backup-list {
   list-style: none;
@@ -80,7 +80,7 @@ dialog {
   max-height: 55vh;
   overflow-y: auto;
   border: 1px solid var(--cp-border);
-  background: #0D0D0D;
+  background: #0d0d0d;
 }
 .backup-entry {
   padding: 6px 10px;
@@ -90,8 +90,13 @@ dialog {
   cursor: pointer;
   color: var(--cp-dim);
 }
-.backup-entry:last-child { border-bottom: none; }
-.backup-entry:hover { background: rgba(255,255,255,0.03); color: var(--cp-fg); }
+.backup-entry:last-child {
+  border-bottom: none;
+}
+.backup-entry:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--cp-fg);
+}
 .backup-entry--selected {
   background: var(--cp-row-selected) !important;
   border-left: 2px solid var(--cp-focus);

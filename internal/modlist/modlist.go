@@ -44,6 +44,7 @@ func Write(dir string, mods []*conflict.ModInfo, tag string) error {
 	if err := os.WriteFile(dest, []byte(sb.String()), 0o644); err != nil {
 		return fmt.Errorf("write modlist.txt: %w", err)
 	}
+
 	return nil
 }
 
@@ -63,12 +64,14 @@ func PruneBackups(backupDir string, limit int) error {
 	if err != nil {
 		return fmt.Errorf("read backup dir: %w", err)
 	}
+
 	var names []string
 	for _, e := range entries {
 		if !e.IsDir() {
 			names = append(names, e.Name())
 		}
 	}
+
 	if len(names) <= limit {
 		return nil
 	}
@@ -76,5 +79,6 @@ func PruneBackups(backupDir string, limit int) error {
 	for _, name := range names[:len(names)-limit] {
 		_ = os.Remove(filepath.Join(backupDir, name))
 	}
+
 	return nil
 }

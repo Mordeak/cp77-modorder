@@ -10,7 +10,7 @@ defineProps<{ text: string }>()
 .statusbar {
   flex-shrink: 0;
   padding: 3px 10px;
-  background: #0D0D0D;
+  background: #0d0d0d;
   border-top: 2px solid var(--cp-border);
   font-size: 10px;
   color: var(--cp-dim);

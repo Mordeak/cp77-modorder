@@ -44,14 +44,14 @@ func Scan(dir string) ([]*Archive, error) {
 		case ".archive":
 			paths = append(paths, filepath.Join(dir, e.Name()))
 		case ".xl":
-			xlNames[e.Name()] = true
+			xlNames[strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))] = true
 		}
 	}
 	archives := parseAll(paths)
 	for _, a := range archives {
-		base := strings.TrimSuffix(a.Name, filepath.Ext(a.Name))
-		a.HasXL = xlNames[base+".xl"]
+		a.HasXL = xlNames[strings.TrimSuffix(a.Name, filepath.Ext(a.Name))]
 	}
+
 	return archives, nil
 }
 
@@ -99,6 +99,7 @@ func parseAll(paths []string) []*Archive {
 	for i, r := range results {
 		archives[i] = r.a
 	}
+
 	return archives
 }
 
@@ -173,6 +174,7 @@ func ScanMO2(modsDir string, enabledMods []string) ([]*Archive, error) {
 	for i, r := range results {
 		archives[i] = r.a
 	}
+
 	return archives, nil
 }
 
@@ -200,6 +202,7 @@ func mergeArchives(name string, archives []*Archive) *Archive {
 	if len(merged.FilePaths) == 0 {
 		merged.FilePaths = nil
 	}
+
 	return merged
 }
 
@@ -330,6 +333,7 @@ func parseLXRS(f *os.File) map[uint64]string {
 	if len(paths) == 0 {
 		return nil
 	}
+
 	return paths
 }
 
@@ -359,5 +363,6 @@ func fnv1a64(s string) uint64 {
 		h ^= uint64(s[i])
 		h *= prime64
 	}
+
 	return h
 }

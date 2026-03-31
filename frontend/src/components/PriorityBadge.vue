@@ -9,7 +9,7 @@ defineProps<{ priority: number }>()
 
 <style scoped>
 .badge-prio {
-  background: rgba(240,192,0,0.12);
+  background: rgba(240, 192, 0, 0.12);
   color: var(--cp-primary);
   font-size: 10px;
   padding: 1px 5px;
@@ -19,5 +19,7 @@ defineProps<{ priority: number }>()
   box-shadow: var(--glow-primary);
   letter-spacing: 0.3px;
 }
-.badge-unset { color: var(--cp-dim); }
+.badge-unset {
+  color: var(--cp-dim);
+}
 </style>

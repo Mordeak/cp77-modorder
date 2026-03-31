@@ -33,11 +33,7 @@
 
     <div class="app-split">
       <div class="app-left">
-        <ModListTable
-          :rows="store.rows"
-          :selected-index="store.selectedIndex"
-          @select="store.selectRow"
-        />
+        <ModListTable :rows="store.rows" :selected-index="store.selectedIndex" @select="store.selectRow" />
       </div>
       <div class="app-right">
         <DetailPanel
@@ -57,19 +53,13 @@
       :conflicts="store.conflicts"
       @close="store.showConflictGraph = false"
     />
-    <ApplyDialog
-      v-if="store.showApplyDialog"
-      @close="store.showApplyDialog = false"
-    />
+    <ApplyDialog v-if="store.showApplyDialog" @close="store.showApplyDialog = false" />
     <ConflictResolutionDialog
       v-if="store.showConflictResolution"
       :mods="store.newConflictingMods"
       @close="onConflictResolutionClose"
     />
-    <RestoreDialog
-      v-if="store.showRestoreDialog"
-      @close="store.showRestoreDialog = false"
-    />
+    <RestoreDialog v-if="store.showRestoreDialog" @close="store.showRestoreDialog = false" />
   </div>
 </template>
 
@@ -146,7 +136,6 @@ function onConflictResolutionClose() {
   store.showConflictResolution = false
   store.newConflictingMods = []
 }
-
 </script>
 
 <style scoped>

@@ -35,8 +35,8 @@ export function useWails() {
       store.setScanResult(result)
       if (result.hasModlist) {
         const newConflicting = result.rows
-          .filter(r => r.unlisted && r.mod && r.mod.conflictCount > 0)
-          .map(r => r.name)
+          .filter((r) => r.unlisted && r.mod && r.mod.conflictCount > 0)
+          .map((r) => r.name)
         if (newConflicting.length > 0) {
           store.newConflictingMods = newConflicting
           store.showConflictResolution = true
@@ -134,9 +134,20 @@ export function useWails() {
   }
 
   return {
-    registerEvents, loadConfig, pickFolder, runScan,
-    setPriority, reorderGroup, writeModlist, getApplyPreview, getConflictGroup,
-    setModlistOrder, groupConflicts, listBackups, restoreBackup,
-    getMO2Profiles, scanMO2,
+    registerEvents,
+    loadConfig,
+    pickFolder,
+    runScan,
+    setPriority,
+    reorderGroup,
+    writeModlist,
+    getApplyPreview,
+    getConflictGroup,
+    setModlistOrder,
+    groupConflicts,
+    listBackups,
+    restoreBackup,
+    getMO2Profiles,
+    scanMO2,
   }
 }

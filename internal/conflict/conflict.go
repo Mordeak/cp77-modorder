@@ -125,6 +125,7 @@ func (r *Result) ApplyPriorities() {
 	for _, ce := range r.Conflicts {
 		index[ce.Resource] = ce.Mods
 	}
+
 	for _, ce := range r.Conflicts {
 		winnerIdx := loadIdx(r.Mods, ce.Mods[0])
 		winner := ce.Mods[0]
@@ -157,6 +158,7 @@ func (r *Result) Summary() string {
 			conflicted++
 		}
 	}
+
 	return fmt.Sprintf("%d mods loaded · %d conflicts · %d mods affected",
 		len(r.Mods), len(r.Conflicts), conflicted)
 }
@@ -191,5 +193,6 @@ func loadIdx(mods []*ModInfo, target *ModInfo) int {
 			return i
 		}
 	}
+
 	return len(mods)
 }

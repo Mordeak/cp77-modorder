@@ -3,12 +3,18 @@
     <div class="detail-name">{{ mod.name }}</div>
 
     <div class="detail-stats">
-      <div class="stat-row"><span class="stat-label">Files</span><span>{{ mod.fileCount }}</span></div>
+      <div class="stat-row">
+        <span class="stat-label">Files</span><span>{{ mod.fileCount }}</span>
+      </div>
       <div class="stat-row">
         <span class="stat-label">Conflicting files</span><span>{{ mod.conflictCount }}</span>
       </div>
-      <div class="stat-row"><span class="stat-label">Wins</span><span class="text-success">{{ mod.wins }}</span></div>
-      <div class="stat-row"><span class="stat-label">Losses</span><span class="text-error">{{ mod.losses }}</span></div>
+      <div class="stat-row">
+        <span class="stat-label">Wins</span><span class="text-success">{{ mod.wins }}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Losses</span><span class="text-error">{{ mod.losses }}</span>
+      </div>
       <!-- <div class="stat-row"><span class="stat-label">Priority</span><PriorityBadge :priority="mod.priority" /></div> -->
     </div>
 
@@ -22,17 +28,11 @@
     <div v-if="mod.conflictsWith?.length" class="detail-section section-conflicts">
       <div class="section-title section-title--conflict">Conflicts</div>
       <div class="conflict-list">
-        <div
-          v-for="entry in groupedConflicts"
-          :key="entry.opponent"
-          class="conflict-entry"
-        >
+        <div v-for="entry in groupedConflicts" :key="entry.opponent" class="conflict-entry">
           <span class="text-error">{{ entry.opponent }}</span>
           <span class="conflict-count">{{ entry.count }}</span>
         </div>
-        <div v-if="mod.hasMore" class="text-dim" style="padding: 4px 0;">
-          …and {{ mod.moreCount }} more
-        </div>
+        <div v-if="mod.hasMore" class="text-dim" style="padding: 4px 0">…and {{ mod.moreCount }} more</div>
       </div>
     </div>
 
@@ -140,7 +140,10 @@ async function clearPriority() {
   font-size: 11px;
   letter-spacing: 0.4px;
 }
-.detail-actions { display: flex; gap: 8px; }
+.detail-actions {
+  display: flex;
+  gap: 8px;
+}
 .detail-section {
   display: flex;
   flex-direction: column;
@@ -151,12 +154,12 @@ async function clearPriority() {
 .section-conflicts {
   background: rgba(255, 51, 102, 0.05);
   border: 1px solid rgba(255, 51, 102, 0.3);
-  box-shadow: 0 0 12px rgba(255,51,102,0.08);
+  box-shadow: 0 0 12px rgba(255, 51, 102, 0.08);
 }
 .section-loadorder {
   background: rgba(0, 229, 255, 0.04);
   border: 1px solid rgba(0, 229, 255, 0.25);
-  box-shadow: 0 0 12px rgba(0,229,255,0.06);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.06);
 }
 .section-title {
   font-size: 11px;
@@ -176,7 +179,10 @@ async function clearPriority() {
   text-shadow: var(--glow-focus);
   border-bottom: 1px solid rgba(0, 229, 255, 0.3);
 }
-.conflict-list { max-height: 260px; overflow-y: auto; }
+.conflict-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
 .conflict-entry {
   display: flex;
   align-items: center;
@@ -194,6 +200,10 @@ async function clearPriority() {
   border: 1px solid var(--cp-error);
   flex-shrink: 0;
 }
-.prio-dialog { min-width: 300px; }
-.prio-dialog input { width: 100%; }
+.prio-dialog {
+  min-width: 300px;
+}
+.prio-dialog input {
+  width: 100%;
+}
 </style>
