@@ -51,7 +51,8 @@ type ConflictGroupDTO struct {
 
 // ApplyPreviewDTO is the ordered list shown in the Apply dialog.
 type ApplyPreviewDTO struct {
-	Names []string `json:"names"`
+	Names   []string `json:"names"`   // new order that will be written
+	Current []string `json:"current"` // order at last scan, for diff display
 }
 
 // ConfigDTO carries persisted user preferences.

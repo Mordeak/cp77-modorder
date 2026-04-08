@@ -23,9 +23,10 @@ type App struct {
 	cfg          *config.Config
 	cfgPath      string
 	result       *conflict.Result
-	modDir       string
-	modlistOrder []string
-	modlistSet   map[string]bool
+	modDir               string
+	modlistOrder         []string
+	modlistSet           map[string]bool
+	initialModlistOrder  []string // snapshot of modlist order at last scan, used for Apply diff
 	pathMap      map[string]string // "0x<hex>" → human-readable resource path (from LXRS footers)
 	modStructure string            // "default" | "MO2" — set from CLI flag, not persisted
 }
@@ -152,6 +153,10 @@ func (a *App) ScanMO2(instanceDir, profile string) (ScanResultDTO, error) {
 		a.modlistSet[n] = true
 	}
 
+	snap := make([]string, len(a.modlistOrder))
+	copy(snap, a.modlistOrder)
+	a.initialModlistOrder = snap
+
 	a.modDir = modsDir
 	a.cfg.MO2Dir = instanceDir
 	a.cfg.MO2Profile = profile
@@ -236,6 +241,10 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 	for _, n := range order {
 		a.modlistSet[n] = true
 	}
+
+	snap := make([]string, len(order))
+	copy(snap, order)
+	a.initialModlistOrder = snap
 
 	// Persist the directory.
 	a.modDir = dir
@@ -435,7 +444,8 @@ func (a *App) SetModlistOrder(names []string) (ScanResultDTO, error) {
 	return a.buildScanResult(), nil
 }
 
-// GetApplyPreview returns the ordered mod names that will be written to modlist.txt.
+// GetApplyPreview returns the ordered mod names that will be written to modlist.txt,
+// plus the order at last scan so the frontend can show a diff.
 func (a *App) GetApplyPreview() (ApplyPreviewDTO, error) {
 	if a.result == nil {
 		return ApplyPreviewDTO{}, fmt.Errorf("no scan results — run a scan first")
@@ -446,7 +456,10 @@ func (a *App) GetApplyPreview() (ApplyPreviewDTO, error) {
 		names[i] = m.Name
 	}
 
-	return ApplyPreviewDTO{Names: names}, nil
+	current := make([]string, len(a.initialModlistOrder))
+	copy(current, a.initialModlistOrder)
+
+	return ApplyPreviewDTO{Names: names, Current: current}, nil
 }
 
 // ListBackups returns backup filenames from modlist.old/, newest first.
