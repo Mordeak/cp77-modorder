@@ -2,7 +2,7 @@
   <dialog ref="dlg" class="cg-dialog" @cancel.prevent>
     <div class="dialog-header">
       Conflict Graph — {{ conflicts.length }} conflicting files
-      <button class="close-btn" @click="$emit('close')">✕</button>
+      <button class="close-btn" @click="$emit('close')" title="Close"><X :size="16" /></button>
     </div>
     <div class="dialog-body">
       <input type="search" v-model="query" placeholder="Filter by mod name or resource…" class="cg-search" />
@@ -28,6 +28,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { X } from 'lucide-vue-next'
 import type { main } from '../../wailsjs/go/models'
 
 const props = defineProps<{ conflicts: main.ConflictDTO[] }>()
@@ -61,11 +62,10 @@ const filtered = computed(() => {
   background: none;
   border: none;
   color: var(--cp-dim);
-  font-size: 16px;
   cursor: pointer;
   padding: 0 4px;
-  text-transform: none;
-  letter-spacing: 0;
+  display: flex;
+  align-items: center;
   transition:
     color 0.15s,
     text-shadow 0.15s;

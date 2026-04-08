@@ -31,7 +31,7 @@
         >
           <template #item="{ element: { row, idx } }">
             <tr :class="rowClass(row, idx)" @click="row.missing ? null : $emit('select', idx)">
-              <td><span class="drag-handle" :class="{ 'drag-handle--hidden': row.missing }">⠿</span></td>
+              <td><GripVertical class="drag-handle" :class="{ 'drag-handle--hidden': row.missing }" :size="14" /></td>
               <td>{{ row.missing ? '—' : idx + 1 }}</td>
               <td :title="row.name">{{ truncate(row.name, 43) }}</td>
               <td>{{ row.mod ? row.mod.fileCount : '—' }}</td>
@@ -58,7 +58,7 @@
             :class="rowClass(row, idx)"
             @click="row.missing ? null : $emit('select', idx)"
           >
-            <td><span class="drag-handle drag-handle--hidden">⠿</span></td>
+            <td><GripVertical class="drag-handle drag-handle--hidden" :size="14" /></td>
             <td>{{ row.missing ? '—' : idx + 1 }}</td>
             <td :title="row.name">{{ truncate(row.name, 43) }}</td>
             <td>{{ row.mod ? row.mod.fileCount : '—' }}</td>
@@ -85,6 +85,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import draggable from 'vuedraggable'
+import { GripVertical } from 'lucide-vue-next'
 import type { main } from '../../wailsjs/go/models'
 import { truncate } from '../utils'
 import { useWails } from '../composables/useWails'
@@ -220,9 +221,7 @@ th {
 .drag-handle {
   color: var(--cp-dim);
   cursor: grab;
-  font-size: 14px;
   display: block;
-  text-align: center;
   transition: color 0.15s;
 }
 .drag-handle:hover {

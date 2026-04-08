@@ -4,7 +4,7 @@
     <draggable v-else v-model="localOrder" item-key="name" handle=".drag-handle" :animation="150" @end="onReorder">
       <template #item="{ element }">
         <div class="dnd-row" :class="rowClass(element)">
-          <span class="drag-handle">⠿</span>
+          <GripVertical class="drag-handle" :size="16" />
           <span class="dnd-name" :title="element">{{ truncate(element, 36) }}</span>
         </div>
       </template>
@@ -15,6 +15,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import draggable from 'vuedraggable'
+import { GripVertical } from 'lucide-vue-next'
 import { useWails } from '../composables/useWails'
 import { truncate } from '../utils'
 
@@ -82,7 +83,6 @@ function rowClass(name: string): string {
 .drag-handle {
   color: var(--cp-dim);
   cursor: grab;
-  font-size: 16px;
   flex-shrink: 0;
   transition:
     color 0.15s,

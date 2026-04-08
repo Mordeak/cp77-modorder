@@ -26,7 +26,7 @@
           class="view-btn maximize-btn"
           :title="maximized ? 'Restore' : 'Maximize'"
           @click="maximized = !maximized"
-        >{{ maximized ? '⊡' : '⊞' }}</button>
+        ><Minimize2 v-if="maximized" :size="13" /><Maximize2 v-else :size="13" /></button>
       </div>
     </div>
 
@@ -97,6 +97,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { Maximize2, Minimize2 } from 'lucide-vue-next'
 import { useWails } from '../composables/useWails'
 
 const emit = defineEmits<{ close: [] }>()
@@ -228,9 +229,10 @@ dialog.maximized .diff-list {
   border-color: var(--cp-primary);
 }
 .maximize-btn {
-  font-size: 13px;
-  padding: 1px 5px;
+  padding: 2px 5px;
   margin-left: 4px;
+  display: flex;
+  align-items: center;
 }
 
 /* ---- Plain list ---- */

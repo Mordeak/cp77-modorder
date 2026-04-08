@@ -10,13 +10,14 @@
     </div>
     <div class="dialog-footer">
       <button @click="advance">{{ isLastStep ? 'Done' : 'Skip' }}</button>
-      <button v-if="!isLastStep" class="primary" @click="advance">Next →</button>
+      <button v-if="!isLastStep" class="primary next-btn" @click="advance">Next <ChevronRight :size="13" /></button>
     </div>
   </dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { ChevronRight } from 'lucide-vue-next'
 import LoadOrderDnd from './LoadOrderDnd.vue'
 
 const props = defineProps<{ mods: string[] }>()
@@ -45,6 +46,11 @@ function advance() {
   width: 480px;
   border: 1px solid var(--cp-error);
   box-shadow: 0 0 30px rgba(255, 51, 102, 0.2);
+}
+.next-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .crd-hint {
   font-size: 12px;

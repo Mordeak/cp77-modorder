@@ -9,7 +9,7 @@
         @blur="mo2Dir && $emit('loadProfiles', mo2Dir)"
         placeholder="MO2 instance folder…"
       />
-      <button @click="$emit('pickMO2')" title="Browse MO2 instance…">…</button>
+      <button class="browse-btn" @click="$emit('pickMO2')" title="Browse MO2 instance…"><FolderOpen :size="14" /></button>
       <select
         class="profile-select"
         :value="mo2Profile"
@@ -33,7 +33,7 @@
         @keydown.enter="$emit('scan')"
         placeholder="Paste path to mods folder, e.g. C:/Games/Cyberpunk 2077/archive/pc/mod"
       />
-      <button @click="$emit('pick')" title="Browse…">…</button>
+      <button class="browse-btn" @click="$emit('pick')" title="Browse…"><FolderOpen :size="14" /></button>
       <button class="primary" @click="$emit('scan')" :disabled="scanning">
         {{ scanning ? 'Scanning…' : 'Scan' }}
       </button>
@@ -45,6 +45,8 @@
 </template>
 
 <script setup lang="ts">
+import { FolderOpen } from 'lucide-vue-next'
+
 defineProps<{
   modStructure: 'default' | 'MO2'
   modelValue: string
@@ -93,6 +95,16 @@ defineEmits<{
 }
 .profile-select:disabled {
   color: var(--cp-dim);
+}
+.browse-btn {
+  display: flex;
+  align-items: center;
+  padding: 3px 7px;
+  color: var(--cp-dim);
+  transition: color 0.15s;
+}
+.browse-btn:hover {
+  color: var(--cp-primary);
 }
 .msg {
   font-size: 10px;

@@ -1,22 +1,28 @@
 <template>
   <div class="toolbar">
     <button @click="$emit('open-folder')" title="Open folder">
-      <span class="btn-icon">📁</span><span class="btn-label">Open</span>
+      <FolderOpen class="btn-icon" :size="15" />
+      <span class="btn-label">Open</span>
     </button>
     <button @click="$emit('rescan')" title="Rescan">
-      <span class="btn-icon">🔄</span><span class="btn-label">Rescan</span>
+      <RefreshCw class="btn-icon" :size="15" />
+      <span class="btn-label">Rescan</span>
     </button>
     <button @click="$emit('apply')" :disabled="!hasResult" title="Apply — write modlist.txt">
-      <span class="btn-icon">💾</span><span class="btn-label">Apply</span>
+      <Save class="btn-icon" :size="15" />
+      <span class="btn-label">Apply</span>
     </button>
     <button @click="$emit('conflicts')" :disabled="!hasResult" title="Conflict graph">
-      <span class="btn-icon">ℹ️</span><span class="btn-label">Conflicts</span>
+      <Info class="btn-icon" :size="15" />
+      <span class="btn-label">Conflicts</span>
     </button>
     <button @click="$emit('group')" :disabled="!hasResult" title="Group related mods together">
-      <span class="btn-icon">🔗</span><span class="btn-label">Group</span>
+      <Link2 class="btn-icon" :size="15" />
+      <span class="btn-label">Group</span>
     </button>
     <button @click="$emit('restore')" title="Restore a modlist backup">
-      <span class="btn-icon">↩️</span><span class="btn-label">Restore</span>
+      <RotateCcw class="btn-icon" :size="15" />
+      <span class="btn-label">Restore</span>
     </button>
 
     <div
@@ -35,6 +41,8 @@
 </template>
 
 <script setup lang="ts">
+import { FolderOpen, RefreshCw, Save, Info, Link2, RotateCcw } from 'lucide-vue-next'
+
 defineProps<{ hasResult: boolean; modStructure: 'default' | 'MO2' }>()
 defineEmits<{
   'open-folder': []
@@ -81,8 +89,14 @@ defineEmits<{
   box-shadow: none;
 }
 .btn-icon {
-  font-size: 15px;
-  line-height: 1;
+  color: var(--cp-dim);
+  transition: color 0.15s;
+}
+.toolbar button:hover .btn-icon {
+  color: var(--cp-primary);
+}
+.toolbar button:disabled .btn-icon {
+  opacity: 0.4;
 }
 .btn-label {
   font-size: 10px;
