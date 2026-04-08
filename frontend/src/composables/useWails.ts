@@ -33,6 +33,7 @@ export function useWails() {
     try {
       const result = await App.Scan(target)
       store.setScanResult(result)
+      store.dirty = false
       if (result.hasModlist) {
         const newConflicting = result.rows
           .filter((r) => r.unlisted && r.mod && r.mod.conflictCount > 0)
@@ -53,6 +54,7 @@ export function useWails() {
     try {
       const result = await App.SetPriority(name, p)
       store.updateScanResult(result)
+      store.dirty = true
     } catch (e: any) {
       store.scanError = String(e)
     }
@@ -62,6 +64,7 @@ export function useWails() {
     try {
       const result = await App.ReorderConflictGroup(names)
       store.updateScanResult(result)
+      store.dirty = true
     } catch (e: any) {
       store.scanError = String(e)
     }
@@ -69,6 +72,7 @@ export function useWails() {
 
   async function writeModlist() {
     await App.WriteModlist()
+    store.dirty = false
   }
 
   async function getApplyPreview() {
@@ -83,6 +87,7 @@ export function useWails() {
     try {
       const result = await App.SetModlistOrder(names)
       store.updateScanResult(result)
+      store.dirty = true
     } catch (e: any) {
       store.scanError = String(e)
     }
@@ -92,6 +97,7 @@ export function useWails() {
     try {
       const result = await App.GroupConflicts()
       store.updateScanResult(result)
+      store.dirty = false
     } catch (e: any) {
       store.scanError = String(e)
     }
@@ -126,6 +132,7 @@ export function useWails() {
       store.mo2Dir = instanceDir
       store.mo2Profile = profile
       store.setScanResult(result)
+      store.dirty = false
     } catch (e: any) {
       store.scanError = String(e)
     } finally {

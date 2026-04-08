@@ -15,6 +15,7 @@ export const useAppStore = defineStore('app', () => {
   const showConflictResolution = ref(false)
   const showRestoreDialog = ref(false)
   const newConflictingMods = ref<string[]>([])
+  const dirty = ref(false)
   // MO2
   const modStructure = ref<'default' | 'MO2'>('default')
   const mo2Dir = ref('')
@@ -65,6 +66,7 @@ export const useAppStore = defineStore('app', () => {
     showConflictResolution,
     showRestoreDialog,
     newConflictingMods,
+    dirty,
     modStructure,
     mo2Dir,
     mo2Profile,

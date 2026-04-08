@@ -60,11 +60,24 @@
       @close="onConflictResolutionClose"
     />
     <RestoreDialog v-if="store.showRestoreDialog" @close="store.showRestoreDialog = false" />
+    <dialog v-if="showRescanWarning" ref="rescanDlg" class="rescan-warn-dialog" @cancel.prevent>
+      <div class="dialog-header">Unsaved Changes</div>
+      <div class="dialog-body">
+        <p class="rescan-warn-body">
+          You have changes that haven't been saved to modlist.txt.<br />
+          Rescanning will discard them.
+        </p>
+      </div>
+      <div class="dialog-footer">
+        <button @click="showRescanWarning = false">Cancel</button>
+        <button class="btn-danger" @click="onConfirmRescan">Rescan anyway</button>
+      </div>
+    </dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref, watch, nextTick } from 'vue'
 import { useAppStore } from './stores/app'
 import { useWails } from './composables/useWails'
 import Toolbar from './components/Toolbar.vue'
@@ -79,6 +92,16 @@ import RestoreDialog from './components/RestoreDialog.vue'
 
 const store = useAppStore()
 const wails = useWails()
+
+const showRescanWarning = ref(false)
+const rescanDlg = ref<HTMLDialogElement>()
+
+watch(showRescanWarning, async (val) => {
+  if (val) {
+    await nextTick()
+    rescanDlg.value?.showModal()
+  }
+})
 
 onMounted(async () => {
   wails.registerEvents()
@@ -105,11 +128,24 @@ async function onOpenFolder() {
 }
 
 async function onRescan() {
+  if (store.dirty) {
+    showRescanWarning.value = true
+    return
+  }
+  await doRescan()
+}
+
+async function doRescan() {
   if (store.modStructure === 'MO2' && store.mo2Dir && store.mo2Profile) {
     await wails.scanMO2(store.mo2Dir, store.mo2Profile)
   } else {
     await wails.runScan()
   }
+}
+
+async function onConfirmRescan() {
+  showRescanWarning.value = false
+  await doRescan()
 }
 
 async function onScan() {
@@ -165,5 +201,25 @@ function onConflictResolutionClose() {
 .app-placeholder {
   padding: 24px;
   color: var(--cp-dim);
+}
+.rescan-warn-dialog {
+  width: 400px;
+  border: 1px solid var(--cp-error);
+  box-shadow: 0 0 30px rgba(255, 51, 102, 0.2);
+}
+.rescan-warn-body {
+  font-size: 12px;
+  color: var(--cp-dim);
+  line-height: 1.7;
+  padding: 6px 8px;
+  border-left: 2px solid var(--cp-error);
+  background: rgba(255, 51, 102, 0.05);
+}
+.btn-danger {
+  border-color: var(--cp-error);
+  color: var(--cp-error);
+}
+.btn-danger:hover {
+  box-shadow: var(--glow-error);
 }
 </style>
