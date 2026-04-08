@@ -212,6 +212,31 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 		return ScanResultDTO{}, fmt.Errorf("no .archive files found in %s", dir)
 	}
 
+	// Read modlist order before detection so archives can be pre-sorted to match it.
+	// conflict.Detect's sortMods preserves input order for unset-priority mods, so
+	// the pre-sort here is what drives win/loss computation when no explicit priority is set.
+	order, _ := a.readModlistOrder(dir)
+	if len(order) > 0 {
+		posMap := make(map[string]int, len(order))
+		for i, n := range order {
+			posMap[n] = i
+		}
+		sort.SliceStable(archives, func(i, j int) bool {
+			pi, iIn := posMap[archives[i].Name]
+			pj, jIn := posMap[archives[j].Name]
+			if iIn && jIn {
+				return pi < pj
+			}
+			if iIn {
+				return true
+			}
+			if jIn {
+				return false
+			}
+			return archives[i].Name < archives[j].Name
+		})
+	}
+
 	a.result = conflict.Detect(archives, a.cfg.Priorities)
 
 	// Build a merged hash→path map from all archives that have LXRS data.
@@ -223,7 +248,6 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 	}
 	a.pathMap = pathMap
 
-	order, _ := a.readModlistOrder(dir)
 	if len(order) == 0 {
 		// No modlist.txt yet — create one with archives sorted alphabetically.
 		alpha := make([]*conflict.ModInfo, len(a.result.Mods))

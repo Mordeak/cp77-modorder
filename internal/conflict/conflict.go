@@ -181,8 +181,8 @@ func sortMods(mods []*ModInfo) {
 				return a.Priority < b.Priority
 			}
 			return a.ConflictCount > b.ConflictCount
-		default: // both unset
-			return a.Name < b.Name
+		default: // both unset — preserve input order; Scan pre-sorts archives to match modlist.txt.
+			return false
 		}
 	})
 }
