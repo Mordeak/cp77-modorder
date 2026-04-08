@@ -448,9 +448,8 @@ func (a *App) SetModlistOrder(names []string) (ScanResultDTO, error) {
 		a.modlistSet[n] = true
 	}
 
-	// Assign sequential priorities matching the new order so ApplyPriorities
-	// re-sorts result.Mods and recomputes wins/losses correctly.
-	// Not persisted to cfg — a rescan restores saved priorities.
+	// Assign sequential priorities matching the new order and persist them so
+	// a rescan uses the same order for conflict win/loss computation.
 	modByName := make(map[string]*conflict.ModInfo, len(a.result.Mods))
 	for _, m := range a.result.Mods {
 		modByName[m.Name] = m
@@ -458,11 +457,14 @@ func (a *App) SetModlistOrder(names []string) (ScanResultDTO, error) {
 	for _, m := range a.result.Mods {
 		m.Priority = 0
 	}
+	a.cfg.Priorities = make(map[string]int, len(names))
 	for i, name := range names {
 		if m, ok := modByName[name]; ok {
 			m.Priority = i + 1
+			a.cfg.Priorities[name] = i + 1
 		}
 	}
+	_ = a.cfg.Save(a.cfgPath)
 	a.result.ApplyPriorities()
 
 	return a.buildScanResult(), nil
