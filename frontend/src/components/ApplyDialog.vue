@@ -96,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Maximize2, Minimize2 } from 'lucide-vue-next'
 import { useWails } from '../composables/useWails'
 
@@ -112,9 +112,28 @@ const error = ref('')
 const writeError = ref('')
 const written = ref(false)
 
-const showDiff = ref(false)
-const diffOnly = ref(false)
+const showDiff = ref(readStoredBoolean('cp77-modorder.apply.showDiff'))
+const diffOnly = ref(readStoredBoolean('cp77-modorder.apply.diffOnly'))
 const maximized = ref(false)
+
+watch(showDiff, value => storeBoolean('cp77-modorder.apply.showDiff', value))
+watch(diffOnly, value => storeBoolean('cp77-modorder.apply.diffOnly', value))
+
+function readStoredBoolean(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function storeBoolean(key: string, value: boolean) {
+  try {
+    localStorage.setItem(key, String(value))
+  } catch {
+    // Ignore unavailable storage; the controls still work for this dialog.
+  }
+}
 
 onMounted(async () => {
   dlg.value?.showModal()
