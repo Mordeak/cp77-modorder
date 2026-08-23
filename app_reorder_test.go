@@ -35,7 +35,7 @@ func TestReorderConflictGroupAddsNewModToModlist(t *testing.T) {
 			mods["new.archive"].Wins, mods["existing.archive"].Losses)
 	}
 
-	if err := a.WriteModlist(); err != nil {
+	if _, err := a.WriteModlist(); err != nil {
 		t.Fatalf("WriteModlist() error = %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(a.modDir, "modlist.txt"))
@@ -126,7 +126,7 @@ func TestReconcileSavedOrderRestoresUnappliedNewMod(t *testing.T) {
 		t.Fatalf("restored row = %+v, want new archive marked unlisted at its saved position", result.Rows[1])
 	}
 
-	if err := a.WriteModlist(); err != nil {
+	if _, err := a.WriteModlist(); err != nil {
 		t.Fatalf("WriteModlist() error = %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(a.modDir, "modlist.txt"))

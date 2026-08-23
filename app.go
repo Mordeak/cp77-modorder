@@ -252,6 +252,15 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 	}
 	diskOrder := append([]string(nil), order...)
 	a.modlistOrder, a.modlistSet = a.reconcileSavedOrder(diskOrder)
+	completedOrder := insertNewArchivesASCII(a.modlistOrder, a.result.Mods)
+	if !slices.Equal(completedOrder, a.modlistOrder) {
+		// Make conflict wins/losses describe the same proposed order the UI shows.
+		// Keep modlistSet unchanged so newly discovered archives remain marked NEW
+		// until the proposed order is actually written to modlist.txt.
+		diskSet := a.modlistSet
+		a.setModlistOrder(completedOrder)
+		a.modlistSet = diskSet
+	}
 
 	snap := make([]string, len(diskOrder))
 	copy(snap, diskOrder)
@@ -642,7 +651,13 @@ func (a *App) reconcileSavedOrder(diskOrder []string) ([]string, map[string]bool
 
 	proposed := make([]string, 0, len(a.result.Mods)+len(diskOrder)-len(diskKnown))
 	for _, m := range a.result.Mods {
-		proposed = append(proposed, m.Name)
+		// Restore only entries whose position was already known: archives in the
+		// on-disk modlist or unlisted archives with a persisted priority. Archives
+		// discovered for the first time during this scan must remain absent here so
+		// insertNewArchivesASCII can place them at their canonical ASCII rank.
+		if diskSet[m.Name] || m.Priority > 0 {
+			proposed = append(proposed, m.Name)
+		}
 	}
 	// Missing archives have no priority in result.Mods, but keeping them near
 	// their original line makes the restored order and Apply preview predictable.
@@ -702,6 +717,39 @@ func (a *App) setModlistOrder(names []string) {
 	a.result.ApplyPriorities()
 }
 
+// insertNewArchivesASCII adds archives missing from the proposed order at their
+// ASCII rank without changing the relative order of entries already present.
+// This keeps a mostly alphabetical modlist tidy while preserving every manual
+// conflict-order adjustment the user has already made.
+func insertNewArchivesASCII(order []string, mods []*conflict.ModInfo) []string {
+	merged := append([]string(nil), order...)
+	seen := make(map[string]bool, len(merged)+len(mods))
+	for _, name := range merged {
+		seen[name] = true
+	}
+
+	newNames := make([]string, 0, len(mods))
+	for _, mod := range mods {
+		if !seen[mod.Name] {
+			newNames = append(newNames, mod.Name)
+			seen[mod.Name] = true
+		}
+	}
+	sort.Strings(newNames)
+
+	for _, name := range newNames {
+		insertAt := 0
+		for _, existing := range merged {
+			if existing < name {
+				insertAt++
+			}
+		}
+		merged = slices.Insert(merged, insertAt, name)
+	}
+
+	return merged
+}
+
 // ---- Private helpers -------------------------------------------------------
 
 // buildScanResult converts internal state to a ScanResultDTO.
@@ -724,7 +772,7 @@ func (a *App) buildScanResult() ScanResultDTO {
 			modByName[m.Name] = m
 		}
 		// Proposed modlist entries first. Entries absent from the on-disk
-		// modlist remain marked as new when a saved order was restored.
+		// modlist remain marked as new at their proposed position.
 		seen := make(map[string]bool, len(a.modlistOrder))
 		for _, name := range a.modlistOrder {
 			if m, ok := modByName[name]; ok {
@@ -738,7 +786,7 @@ func (a *App) buildScanResult() ScanResultDTO {
 				rows = append(rows, DisplayRowDTO{Mod: nil, Name: name, Missing: true})
 			}
 		}
-		// Mods not already present in the proposed order go at the bottom.
+		// Safety fallback for mods not yet present in the proposed order.
 		for _, m := range a.result.Mods {
 			if !seen[m.Name] {
 				rows = append(rows, DisplayRowDTO{Mod: modToDTO(m, a.pathMap), Name: m.Name, Unlisted: true})
