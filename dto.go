@@ -24,10 +24,11 @@ type ModDTO struct {
 // Mod is nil when the archive appears in modlist.txt but is absent from disk (Missing=true).
 // Unlisted=true when the archive is on disk but absent from modlist.txt.
 type DisplayRowDTO struct {
-	Mod      *ModDTO `json:"mod"`      // nil = MISSING
-	Name     string  `json:"name"`
-	Unlisted bool    `json:"unlisted"`
-	Missing  bool    `json:"missing"`
+	Mod         *ModDTO `json:"mod"` // nil = MISSING
+	Name        string  `json:"name"`
+	Unlisted    bool    `json:"unlisted"`
+	Missing     bool    `json:"missing"`
+	CustomOrder bool    `json:"customOrder"` // outside the minimal ASCII-ordered subsequence
 }
 
 // ConflictDTO describes one resource that is contested by multiple mods.
