@@ -14,7 +14,8 @@ import (
 func TestWriteModlistClearsNewStateImmediately(t *testing.T) {
 	tempDir := t.TempDir()
 	a := &App{
-		cfg: &config.Config{},
+		cfg:     &config.Config{},
+		cfgPath: filepath.Join(tempDir, "config", "config.json"),
 		result: &conflict.Result{Mods: []*conflict.ModInfo{
 			{Name: "alpha.archive"},
 			{Name: "charlie.archive"},
@@ -52,5 +53,11 @@ func TestWriteModlistClearsNewStateImmediately(t *testing.T) {
 	}
 	if got := strings.Fields(string(written)); !slices.Equal(got, want) {
 		t.Fatalf("written order = %v, want %v", got, want)
+	}
+	if !slices.Equal(a.cfg.KnownArchives, []string{"alpha.archive", "bravo.archive", "charlie.archive"}) {
+		t.Fatalf("known archives after Apply = %v", a.cfg.KnownArchives)
+	}
+	if !slices.Equal(a.cfg.ModlistSnapshot, want) {
+		t.Fatalf("modlist snapshot after Apply = %v, want %v", a.cfg.ModlistSnapshot, want)
 	}
 }
