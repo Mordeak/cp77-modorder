@@ -211,6 +211,7 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 	// conflict.Detect's sortMods preserves input order for unset-priority mods, so
 	// the pre-sort here is what drives win/loss computation when no explicit priority is set.
 	order, _ := a.readModlistOrder(dir)
+	modlistCreated := len(order) == 0
 	if len(order) > 0 {
 		posMap := make(map[string]int, len(order))
 		for i, n := range order {
@@ -251,16 +252,16 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 		}
 	}
 	diskOrder := append([]string(nil), order...)
-	a.modlistOrder, a.modlistSet = a.reconcileSavedOrder(diskOrder)
-	completedOrder := insertNewArchivesASCII(a.modlistOrder, a.result.Mods)
-	if !slices.Equal(completedOrder, a.modlistOrder) {
-		// Make conflict wins/losses describe the same proposed order the UI shows.
-		// Keep modlistSet unchanged so newly discovered archives remain marked NEW
-		// until the proposed order is actually written to modlist.txt.
-		diskSet := a.modlistSet
-		a.setModlistOrder(completedOrder)
-		a.modlistSet = diskSet
-	}
+	a.modlistOrder, a.modlistSet = a.reconcileScanOrder(dir, diskOrder, modlistCreated)
+
+	// Make conflict wins/losses and persisted priorities describe the proposed
+	// order the UI shows. Keep modlistSet unchanged: archives first discovered by
+	// MO remain marked NEW even when Vortex already appended them to modlist.txt.
+	listedSet := a.modlistSet
+	a.cfg.ArchiveStateDir = dir
+	a.cfg.ModlistSnapshot = append([]string(nil), diskOrder...)
+	a.setModlistOrder(a.modlistOrder)
+	a.modlistSet = listedSet
 
 	snap := make([]string, len(diskOrder))
 	copy(snap, diskOrder)
@@ -525,6 +526,12 @@ func (a *App) acceptWrittenOrder() {
 	a.modlistOrder = names
 	a.modlistSet = listed
 	a.initialModlistOrder = append([]string(nil), names...)
+	if a.modStructure != "MO2" {
+		a.cfg.ArchiveStateDir = a.modDir
+		a.cfg.KnownArchives = archiveNames(a.result.Mods)
+		a.cfg.ModlistSnapshot = append([]string(nil), names...)
+	}
+	_ = a.cfg.Save(a.cfgPath)
 }
 
 // writeMO2Modlist rewrites the MO2 profile modlist.txt, preserving disabled mods
@@ -670,6 +677,153 @@ func (a *App) reconcileSavedOrder(diskOrder []string) ([]string, map[string]bool
 	}
 
 	return proposed, diskSet
+}
+
+// reconcileScanOrder merges MO's persisted proposed order with the modlist
+// currently on disk. Vortex 0.13.2+ manages archive load order itself: it
+// preserves known entries but appends newly deployed archives to modlist.txt.
+// Those entries must still be treated as NEW and inserted at their natural ASCII
+// position. Conversely, when Vortex deliberately reorders or resets the known
+// entries, its on-disk order becomes the new source of truth and stale MO
+// priorities must not resurrect the previous order.
+func (a *App) reconcileScanOrder(dir string, diskOrder []string, modlistCreated bool) ([]string, map[string]bool) {
+	known, trustDisk := a.knownArchiveSet(dir)
+	currentNames := make(map[string]bool, len(a.result.Mods))
+	freshNames := make(map[string]bool)
+	for _, mod := range a.result.Mods {
+		currentNames[mod.Name] = true
+		if !known[mod.Name] {
+			freshNames[mod.Name] = true
+		}
+	}
+
+	previouslyListed := nameSet(a.cfg.ModlistSnapshot)
+	migrationAppended := make(map[string]bool)
+	migrationReset := false
+	if a.cfg.ModlistSnapshot == nil && len(diskOrder) > 0 {
+		sortedPrefixLen := asciiOrderedPrefixLen(diskOrder)
+		// A legacy config may first be opened after Vortex reset the list to
+		// alphabetical order and then appended another deployment. Recognise a
+		// large sorted prefix as that reset and reinsert only its trailing suffix.
+		migrationReset = sortedPrefixLen*4 >= len(diskOrder)*3
+		if migrationReset {
+			for _, name := range diskOrder[sortedPrefixLen:] {
+				if currentNames[name] {
+					migrationAppended[name] = true
+				}
+			}
+		}
+	}
+
+	// Remove archives newly appended by Vortex from its on-disk tail so they can
+	// be inserted naturally below. This includes a known archive being re-enabled
+	// after it was absent during the previous scan. Missing entries are preserved
+	// so the existing MISSING rows keep their positions.
+	knownDiskOrder := make([]string, 0, len(diskOrder))
+	listedSet := make(map[string]bool, len(diskOrder))
+	for _, name := range diskOrder {
+		if !freshNames[name] {
+			listedSet[name] = true
+		}
+		appendedByVortex := migrationAppended[name] ||
+			(a.cfg.ModlistSnapshot != nil && currentNames[name] && !previouslyListed[name])
+		if freshNames[name] || appendedByVortex {
+			continue
+		}
+		knownDiskOrder = append(knownDiskOrder, name)
+	}
+
+	externalKnownChange := modlistCreated || trustDisk || migrationReset
+	if !externalKnownChange && a.cfg.ModlistSnapshot != nil {
+		externalKnownChange = knownOrderChanged(a.cfg.ModlistSnapshot, diskOrder, known, currentNames)
+	}
+	proposed := knownDiskOrder
+	if !externalKnownChange {
+		proposed, _ = a.reconcileSavedOrder(knownDiskOrder)
+	}
+	proposed = insertNewArchivesASCII(proposed, a.result.Mods)
+
+	return proposed, listedSet
+}
+
+// knownArchiveSet returns the archives acknowledged by the last Apply. Older
+// configs have no explicit set, so migrate from priorities only when those
+// priorities clearly describe almost the whole current order. Sparse manual
+// priorities are not a safe history and cause the current disk order to win.
+func (a *App) knownArchiveSet(dir string) (map[string]bool, bool) {
+	if a.cfg.ArchiveStateDir != "" && !strings.EqualFold(filepath.Clean(a.cfg.ArchiveStateDir), filepath.Clean(dir)) {
+		// Archive state belongs to another default mods folder. Do not let it
+		// classify this folder's archives or override its on-disk order.
+		a.cfg.KnownArchives = archiveNames(a.result.Mods)
+		a.cfg.ModlistSnapshot = nil
+		return nameSet(a.cfg.KnownArchives), true
+	}
+	if a.cfg.KnownArchives != nil {
+		return nameSet(a.cfg.KnownArchives), false
+	}
+
+	current := archiveNames(a.result.Mods)
+	prioritised := make([]string, 0, len(current))
+	for _, name := range current {
+		if a.cfg.Priorities[name] > 0 {
+			prioritised = append(prioritised, name)
+		}
+	}
+
+	// setModlistOrder writes a priority for every archive. Requiring 75% coverage
+	// distinguishes that full-order state from legacy configs containing only a
+	// handful of priorities assigned manually through the details panel.
+	usePriorities := len(current) > 0 && len(prioritised)*4 >= len(current)*3
+	knownNames := current
+	trustDisk := true
+	if usePriorities {
+		knownNames = prioritised
+		trustDisk = false
+	}
+	a.cfg.KnownArchives = append([]string(nil), knownNames...)
+
+	return nameSet(knownNames), trustDisk
+}
+
+func nameSet(names []string) map[string]bool {
+	set := make(map[string]bool, len(names))
+	for _, name := range names {
+		set[name] = true
+	}
+	return set
+}
+
+func archiveNames(mods []*conflict.ModInfo) []string {
+	names := make([]string, len(mods))
+	for i, mod := range mods {
+		names[i] = mod.Name
+	}
+	sort.Strings(names)
+	return names
+}
+
+func knownOrderChanged(previous, current []string, known, currentNames map[string]bool) bool {
+	previousSet := nameSet(previous)
+	currentSet := nameSet(current)
+	filter := func(order []string) []string {
+		filtered := make([]string, 0, len(order))
+		for _, name := range order {
+			if known[name] && currentNames[name] && previousSet[name] && currentSet[name] {
+				filtered = append(filtered, name)
+			}
+		}
+		return filtered
+	}
+	return !slices.Equal(filter(previous), filter(current))
+}
+
+func asciiOrderedPrefixLen(order []string) int {
+	for i := 1; i < len(order); i++ {
+		if order[i-1] > order[i] {
+			return i
+		}
+	}
+	return len(order)
 }
 
 // completeModlistOrder returns the full order displayed by the UI, including

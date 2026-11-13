@@ -179,11 +179,11 @@ func newReorderTestApp(
 	for _, name := range conflictingNames {
 		contestants = append(contestants, modsByName[name])
 	}
-	result := &conflict.Result{
-		Mods: mods,
-		Conflicts: []*conflict.ConflictEntry{
+	result := &conflict.Result{Mods: mods}
+	if len(contestants) > 0 {
+		result.Conflicts = []*conflict.ConflictEntry{
 			{Resource: "0x1", Mods: contestants},
-		},
+		}
 	}
 	result.ApplyPriorities()
 

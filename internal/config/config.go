@@ -9,11 +9,14 @@ import (
 
 // Config holds all persisted user settings.
 type Config struct {
-	ModDir      string         `json:"mod_dir"`
-	MO2Dir      string         `json:"mo2_dir"`      // MO2 instance root directory
-	MO2Profile  string         `json:"mo2_profile"`  // last-used MO2 profile name
-	Priorities  map[string]int `json:"priorities"`   // archive name → priority (1-99, 0 = unset)
-	BackupLimit int            `json:"backup_limit"` // max modlist backups to keep; 0 = use default (20)
+	ModDir          string         `json:"mod_dir"`
+	MO2Dir          string         `json:"mo2_dir"`           // MO2 instance root directory
+	MO2Profile      string         `json:"mo2_profile"`       // last-used MO2 profile name
+	Priorities      map[string]int `json:"priorities"`        // archive name → priority (1-99, 0 = unset)
+	ArchiveStateDir string         `json:"archive_state_dir"` // folder owning the archive state below
+	KnownArchives   []string       `json:"known_archives"`    // archives acknowledged by the last Apply
+	ModlistSnapshot []string       `json:"modlist_snapshot"`  // modlist.txt order seen during the last scan
+	BackupLimit     int            `json:"backup_limit"`      // max modlist backups to keep; 0 = use default (20)
 }
 
 // EffectiveBackupLimit returns the configured backup limit, or 20 when unset.
