@@ -989,6 +989,7 @@ func (a *App) buildScanResult() ScanResultDTO {
 			}
 		}
 	}
+	markCustomOrder(rows)
 
 	// Build conflict list, resolving hex hashes to human-readable paths where available.
 	conflicts := make([]ConflictDTO, 0, len(a.result.Conflicts))
@@ -1009,6 +1010,55 @@ func (a *App) buildScanResult() ScanResultDTO {
 		Conflicts:  conflicts,
 		Summary:    a.result.Summary(),
 		HasModlist: len(a.modlistOrder) > 0,
+	}
+}
+
+// markCustomOrder flags the smallest set of present archives whose removal
+// would make the displayed order strictly ASCII-sorted. This is the complement
+// of a longest increasing subsequence: moving one archive across hundreds of
+// rows therefore marks only the actual outlier, not every displaced neighbour.
+// Missing modlist entries are ignored because the game cannot load them.
+func markCustomOrder(rows []DisplayRowDTO) {
+	var rowIndexes []int
+	var names []string
+	for i := range rows {
+		if rows[i].Mod == nil || rows[i].Missing {
+			continue
+		}
+		rowIndexes = append(rowIndexes, i)
+		names = append(names, rows[i].Name)
+	}
+	if len(names) < 2 {
+		return
+	}
+
+	// tails[length-1] is the input index ending the lexicographically smallest
+	// increasing subsequence of that length found so far.
+	tails := make([]int, 0, len(names))
+	previous := make([]int, len(names))
+	for i := range previous {
+		previous[i] = -1
+	}
+	for i, name := range names {
+		position := sort.Search(len(tails), func(j int) bool {
+			return names[tails[j]] >= name
+		})
+		if position > 0 {
+			previous[i] = tails[position-1]
+		}
+		if position == len(tails) {
+			tails = append(tails, i)
+		} else {
+			tails[position] = i
+		}
+	}
+
+	inNaturalOrder := make([]bool, len(names))
+	for i := tails[len(tails)-1]; i >= 0; i = previous[i] {
+		inNaturalOrder[i] = true
+	}
+	for i, rowIndex := range rowIndexes {
+		rows[rowIndex].CustomOrder = !inNaturalOrder[i]
 	}
 }
 

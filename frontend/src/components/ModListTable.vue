@@ -18,7 +18,7 @@
             <th style="width: 55px">Files</th>
             <th style="width: 80px">Conflicts</th>
             <th style="width: 80px">W / L</th>
-            <th style="width: 65px">Status</th>
+            <th style="width: 112px">Status</th>
           </tr>
         </thead>
         <draggable
@@ -47,8 +47,18 @@
               </td>
               <td v-else>—</td>
               <td>
-                <span v-if="row.missing" class="badge badge-missing">MISSING</span>
-                <span v-else-if="row.unlisted" class="badge badge-new">NEW</span>
+                <div class="status-badges">
+                  <span v-if="row.missing" class="badge badge-missing">MISSING</span>
+                  <template v-else>
+                    <span v-if="row.unlisted" class="badge badge-new">NEW</span>
+                    <span
+                      v-if="row.customOrder"
+                      class="badge badge-custom"
+                      title="Custom load-order position — differs from natural ASCII order"
+                      >CUSTOM</span
+                    >
+                  </template>
+                </div>
               </td>
             </tr>
           </template>
@@ -74,8 +84,18 @@
             </td>
             <td v-else>—</td>
             <td>
-              <span v-if="row.missing" class="badge badge-missing">MISSING</span>
-              <span v-else-if="row.unlisted" class="badge badge-new">NEW</span>
+              <div class="status-badges">
+                <span v-if="row.missing" class="badge badge-missing">MISSING</span>
+                <template v-else>
+                  <span v-if="row.unlisted" class="badge badge-new">NEW</span>
+                  <span
+                    v-if="row.customOrder"
+                    class="badge badge-custom"
+                    title="Custom load-order position — differs from natural ASCII order"
+                    >CUSTOM</span
+                  >
+                </template>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -239,6 +259,7 @@ function rowClass(row: main.DisplayRowDTO, idx: number) {
     'row-selected': selectedNames.value.includes(row.name),
     'row-missing': row.missing,
     'row-new': row.unlisted && !row.missing,
+    'row-custom': row.customOrder && !row.missing,
     'row-fully-overridden': !row.missing && !row.unlisted && fullyOverridden,
     'row-conflict': !row.missing && !row.unlisted && losses > 0 && !fullyOverridden,
     'row-clickable': !row.missing,
@@ -382,7 +403,16 @@ th {
 .row-new td:first-child {
   border-left: 2px solid var(--cp-primary);
 }
+.row-custom td:nth-child(3) {
+  color: var(--cp-focus);
+  text-shadow: var(--glow-focus);
+}
 
+.status-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .badge {
   font-size: 10px;
   padding: 1px 5px;
@@ -402,5 +432,11 @@ th {
   color: var(--cp-primary);
   border: 1px solid var(--cp-primary);
   box-shadow: var(--glow-primary);
+}
+.badge-custom {
+  background: rgba(0, 229, 255, 0.13);
+  color: var(--cp-focus);
+  border: 1px solid var(--cp-focus);
+  box-shadow: var(--glow-focus);
 }
 </style>
