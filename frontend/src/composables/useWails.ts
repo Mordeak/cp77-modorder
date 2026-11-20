@@ -84,6 +84,23 @@ export function useWails() {
     return App.GetConflictGroup(name)
   }
 
+  async function getModResources(name: string) {
+    return App.GetModResources(name)
+  }
+
+  async function exportResourcesCSV() {
+    store.exporting = true
+    store.scanError = ''
+    try {
+      return await App.ExportResourcesCSV()
+    } catch (e: any) {
+      store.scanError = String(e)
+      return ''
+    } finally {
+      store.exporting = false
+    }
+  }
+
   async function setModlistOrder(names: string[]) {
     try {
       const result = await App.SetModlistOrder(names)
@@ -151,6 +168,8 @@ export function useWails() {
     writeModlist,
     getApplyPreview,
     getConflictGroup,
+    getModResources,
+    exportResourcesCSV,
     setModlistOrder,
     groupConflicts,
     listBackups,

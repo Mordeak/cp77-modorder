@@ -3,12 +3,14 @@
     <div class="app-top">
       <Toolbar
         :has-result="store.hasResult"
+        :exporting="store.exporting"
         :mod-structure="store.modStructure"
         @open-folder="onOpenFolder"
         @rescan="onRescan"
         @apply="store.showApplyDialog = true"
         @conflicts="store.showConflictGraph = true"
         @group="wails.groupConflicts()"
+        @export-csv="wails.exportResourcesCSV()"
         @restore="store.showRestoreDialog = true"
         @toggle-mo2="store.modStructure = store.modStructure === 'MO2' ? 'default' : 'MO2'"
       />

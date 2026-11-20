@@ -8,6 +8,7 @@ export const useAppStore = defineStore('app', () => {
   const selectedIndex = ref<number>(-1)
   const modDir = ref('')
   const scanning = ref(false)
+  const exporting = ref(false)
   const scanProgress = ref('')
   const scanError = ref('')
   const showConflictGraph = ref(false)
@@ -59,6 +60,7 @@ export const useAppStore = defineStore('app', () => {
     selectedIndex,
     modDir,
     scanning,
+    exporting,
     scanProgress,
     scanError,
     showConflictGraph,
