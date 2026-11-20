@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/csv"
 	"fmt"
 	"slices"
 	"testing"
@@ -103,6 +105,90 @@ func TestGetModResourcesFallsBackToHash(t *testing.T) {
 	}
 	if want := resourceKey(hash); !slices.Equal(got.Files, []string{want}) {
 		t.Fatalf("files = %v, want [%s]", got.Files, want)
+	}
+}
+
+func TestWriteResourcesCSVExportsOneRowPerArchiveResource(t *testing.T) {
+	const (
+		uniqueHash   = uint64(0x100)
+		conflictHash = uint64(0x200)
+	)
+	winner := &conflict.ModInfo{
+		Name: "alpha.archive",
+		Archive: &archive.Archive{
+			Name:       "alpha.archive",
+			FileHashes: []uint64{uniqueHash, conflictHash},
+		},
+	}
+	loser := &conflict.ModInfo{
+		Name: "beta.archive",
+		Archive: &archive.Archive{
+			Name:       "beta.archive",
+			FileHashes: []uint64{conflictHash},
+		},
+	}
+	app := &App{
+		result: &conflict.Result{
+			Mods: []*conflict.ModInfo{winner, loser},
+			Conflicts: []*conflict.ConflictEntry{
+				{Resource: resourceKey(conflictHash), Mods: []*conflict.ModInfo{loser, winner}},
+			},
+		},
+		pathMap: map[string]string{
+			resourceKey(uniqueHash):   `base\unique.ent`,
+			resourceKey(conflictHash): `base\shared.mesh`,
+		},
+		resourcePathsLoaded: map[string]bool{
+			"alpha.archive": true,
+			"beta.archive":  true,
+		},
+	}
+
+	var output bytes.Buffer
+	if err := app.writeResourcesCSV(&output); err != nil {
+		t.Fatalf("writeResourcesCSV() error = %v", err)
+	}
+
+	data := bytes.TrimPrefix(output.Bytes(), []byte{0xEF, 0xBB, 0xBF})
+	records, err := csv.NewReader(bytes.NewReader(data)).ReadAll()
+	if err != nil {
+		t.Fatalf("read exported CSV: %v", err)
+	}
+	if len(records) != 4 {
+		t.Fatalf("CSV rows = %d, want 4 (header + 3 resources)", len(records))
+	}
+
+	wantHeader := []string{
+		"Load Order",
+		"Archive",
+		"Resource Path",
+		"Resource Hash",
+		"Result",
+		"Winning Archive",
+		"Conflicting Archives",
+	}
+	if !slices.Equal(records[0], wantHeader) {
+		t.Fatalf("CSV header = %v, want %v", records[0], wantHeader)
+	}
+	if got := records[1]; got[0] != "1" || got[1] != "alpha.archive" || got[2] != `base\unique.ent` || got[4] != "UNIQUE" {
+		t.Fatalf("unique row = %v", got)
+	}
+	if got := records[2]; got[1] != "alpha.archive" || got[4] != "WIN" || got[5] != "alpha.archive" || got[6] != "beta.archive" {
+		t.Fatalf("winning row = %v", got)
+	}
+	if got := records[3]; got[0] != "2" || got[1] != "beta.archive" || got[4] != "LOSS" || got[5] != "alpha.archive" || got[6] != "alpha.archive" {
+		t.Fatalf("losing row = %v", got)
+	}
+}
+
+func TestSafeCSVCellPreventsFormulaInterpretation(t *testing.T) {
+	for _, value := range []string{"=formula", "+formula", "-formula", "@formula", "\tformula"} {
+		if got := safeCSVCell(value); got != "'"+value {
+			t.Fatalf("safeCSVCell(%q) = %q", value, got)
+		}
+	}
+	if got := safeCSVCell(`base\safe.ent`); got != `base\safe.ent` {
+		t.Fatalf("safeCSVCell changed safe value to %q", got)
 	}
 }
 

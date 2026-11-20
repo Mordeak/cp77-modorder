@@ -20,6 +20,14 @@
       <Link2 class="btn-icon" :size="15" />
       <span class="btn-label">Group</span>
     </button>
+    <button
+      @click="$emit('export-csv')"
+      :disabled="!hasResult || exporting"
+      title="Export all archive resources to CSV"
+    >
+      <FileDown class="btn-icon" :size="15" />
+      <span class="btn-label">{{ exporting ? 'Exporting…' : 'Export CSV' }}</span>
+    </button>
     <button @click="$emit('restore')" title="Restore a modlist backup">
       <RotateCcw class="btn-icon" :size="15" />
       <span class="btn-label">Restore</span>
@@ -41,15 +49,16 @@
 </template>
 
 <script setup lang="ts">
-import { FolderOpen, RefreshCw, Save, Info, Link2, RotateCcw } from 'lucide-vue-next'
+import { FolderOpen, RefreshCw, Save, Info, Link2, FileDown, RotateCcw } from 'lucide-vue-next'
 
-defineProps<{ hasResult: boolean; modStructure: 'default' | 'MO2' }>()
+defineProps<{ hasResult: boolean; exporting: boolean; modStructure: 'default' | 'MO2' }>()
 defineEmits<{
   'open-folder': []
   rescan: []
   apply: []
   conflicts: []
   group: []
+  'export-csv': []
   restore: []
   'toggle-mo2': []
 }>()

@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,6 +33,11 @@ type App struct {
 	pathMap             map[string]string // "0x<hex>" → human-readable resource path (from LXRS footers)
 	resourcePathsLoaded map[string]bool   // archive names already resolved against the optional hash database
 	modStructure        string            // "default" | "MO2" — set from CLI flag, not persisted
+}
+
+type resourceConflictDetail struct {
+	winner *conflict.ModInfo
+	mods   []*conflict.ModInfo
 }
 
 // NewApp creates the App with a loaded config.
@@ -299,59 +306,8 @@ func (a *App) GetModResources(name string) (ModResourcesDTO, error) {
 		return ModResourcesDTO{}, fmt.Errorf("archive %q not found", name)
 	}
 
-	if a.pathMap == nil {
-		a.pathMap = make(map[string]string)
-	}
-	if a.resourcePathsLoaded == nil {
-		a.resourcePathsLoaded = make(map[string]bool)
-	}
-	if !a.resourcePathsLoaded[name] {
-		unresolved := make(map[uint64]struct{})
-		for _, hash := range selected.Archive.FileHashes {
-			key := fmt.Sprintf("0x%016x", hash)
-			if _, found := a.pathMap[key]; !found {
-				unresolved[hash] = struct{}{}
-			}
-		}
-		for hash, path := range archive.ResolveKnownPaths(a.modDir, unresolved) {
-			a.pathMap[fmt.Sprintf("0x%016x", hash)] = path
-		}
-		a.resourcePathsLoaded[name] = true
-	}
-
-	loadIndexes := make(map[*conflict.ModInfo]int, len(a.result.Mods))
-	for index, mod := range a.result.Mods {
-		loadIndexes[mod] = index
-	}
-
-	type outcome uint8
-	const (
-		wins outcome = iota + 1
-		losses
-	)
-	conflictOutcomes := make(map[string]outcome, selected.ConflictCount)
-	for _, entry := range a.result.Conflicts {
-		containsSelected := false
-		var winner *conflict.ModInfo
-		winnerIndex := len(a.result.Mods)
-		for _, mod := range entry.Mods {
-			if mod == selected {
-				containsSelected = true
-			}
-			if index, found := loadIndexes[mod]; found && index < winnerIndex {
-				winner = mod
-				winnerIndex = index
-			}
-		}
-		if !containsSelected {
-			continue
-		}
-		if winner == selected {
-			conflictOutcomes[entry.Resource] = wins
-		} else {
-			conflictOutcomes[entry.Resource] = losses
-		}
-	}
+	a.resolveResourcePaths([]*conflict.ModInfo{selected})
+	conflictDetails := a.currentResourceConflicts()
 
 	resources := ModResourcesDTO{
 		Files:            make([]string, 0, len(selected.Archive.FileHashes)),
@@ -367,17 +323,208 @@ func (a *App) GetModResources(name string) (ModResourcesDTO, error) {
 		}
 		resources.Files = append(resources.Files, display)
 
-		switch conflictOutcomes[key] {
-		case wins:
+		if detail, conflicted := conflictDetails[key]; conflicted {
 			resources.ConflictingFiles = append(resources.ConflictingFiles, display)
-			resources.Wins = append(resources.Wins, display)
-		case losses:
-			resources.ConflictingFiles = append(resources.ConflictingFiles, display)
-			resources.Losses = append(resources.Losses, display)
+			if detail.winner == selected {
+				resources.Wins = append(resources.Wins, display)
+			} else {
+				resources.Losses = append(resources.Losses, display)
+			}
 		}
 	}
 
 	return resources, nil
+}
+
+// ExportResourcesCSV asks where to save a report containing one row per
+// archive resource and returns the chosen path. An empty path means the user
+// cancelled the save dialog.
+func (a *App) ExportResourcesCSV() (string, error) {
+	if a.result == nil {
+		return "", fmt.Errorf("no scan result available")
+	}
+
+	defaultName := "cp77-modorder-resources-" + time.Now().Format("20060102-150405") + ".csv"
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Export archive resources",
+		DefaultFilename: defaultName,
+		Filters: []runtime.FileFilter{
+			{DisplayName: "CSV files (*.csv)", Pattern: "*.csv"},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		return "", nil
+	}
+	if filepath.Ext(path) == "" {
+		path += ".csv"
+	}
+
+	runtime.EventsEmit(a.ctx, "scan:progress", "Resolving resource paths for CSV export…")
+	file, err := os.Create(path)
+	if err != nil {
+		return "", fmt.Errorf("create CSV export: %w", err)
+	}
+	if err := a.writeResourcesCSV(file); err != nil {
+		_ = file.Close()
+		return "", err
+	}
+	if err := file.Close(); err != nil {
+		return "", fmt.Errorf("close CSV export: %w", err)
+	}
+
+	runtime.EventsEmit(a.ctx, "scan:progress", "Exported resource report to "+path)
+	return path, nil
+}
+
+func (a *App) writeResourcesCSV(writer io.Writer) error {
+	if a.result == nil {
+		return fmt.Errorf("no scan result available")
+	}
+
+	modsWithArchives := make([]*conflict.ModInfo, 0, len(a.result.Mods))
+	for _, mod := range a.result.Mods {
+		if mod.Archive != nil {
+			modsWithArchives = append(modsWithArchives, mod)
+		}
+	}
+	a.resolveResourcePaths(modsWithArchives)
+	conflictDetails := a.currentResourceConflicts()
+
+	if _, err := writer.Write([]byte{0xEF, 0xBB, 0xBF}); err != nil {
+		return fmt.Errorf("write CSV BOM: %w", err)
+	}
+	csvWriter := csv.NewWriter(writer)
+	csvWriter.UseCRLF = true
+	header := []string{
+		"Load Order",
+		"Archive",
+		"Resource Path",
+		"Resource Hash",
+		"Result",
+		"Winning Archive",
+		"Conflicting Archives",
+	}
+	if err := csvWriter.Write(header); err != nil {
+		return fmt.Errorf("write CSV header: %w", err)
+	}
+
+	for loadIndex, mod := range a.result.Mods {
+		if mod.Archive == nil {
+			continue
+		}
+		for _, hash := range mod.Archive.FileHashes {
+			key := fmt.Sprintf("0x%016x", hash)
+			resourcePath := key
+			if resolved, found := a.pathMap[key]; found {
+				resourcePath = resolved
+			}
+
+			result := "UNIQUE"
+			winningArchive := ""
+			conflictingArchives := ""
+			if detail, conflicted := conflictDetails[key]; conflicted {
+				winningArchive = detail.winner.Name
+				if detail.winner == mod {
+					result = "WIN"
+				} else {
+					result = "LOSS"
+				}
+				others := make([]string, 0, len(detail.mods)-1)
+				for _, contender := range detail.mods {
+					if contender != mod {
+						others = append(others, contender.Name)
+					}
+				}
+				conflictingArchives = strings.Join(others, " | ")
+			}
+
+			record := []string{
+				strconv.Itoa(loadIndex + 1),
+				safeCSVCell(mod.Name),
+				safeCSVCell(resourcePath),
+				key,
+				result,
+				safeCSVCell(winningArchive),
+				safeCSVCell(conflictingArchives),
+			}
+			if err := csvWriter.Write(record); err != nil {
+				return fmt.Errorf("write CSV row for %s: %w", mod.Name, err)
+			}
+		}
+	}
+
+	csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+		return fmt.Errorf("flush CSV export: %w", err)
+	}
+	return nil
+}
+
+func (a *App) resolveResourcePaths(mods []*conflict.ModInfo) {
+	if a.pathMap == nil {
+		a.pathMap = make(map[string]string)
+	}
+	if a.resourcePathsLoaded == nil {
+		a.resourcePathsLoaded = make(map[string]bool)
+	}
+
+	unresolved := make(map[uint64]struct{})
+	for _, mod := range mods {
+		if mod.Archive == nil || a.resourcePathsLoaded[mod.Name] {
+			continue
+		}
+		for _, hash := range mod.Archive.FileHashes {
+			key := fmt.Sprintf("0x%016x", hash)
+			if _, found := a.pathMap[key]; !found {
+				unresolved[hash] = struct{}{}
+			}
+		}
+	}
+	for hash, path := range archive.ResolveKnownPaths(a.modDir, unresolved) {
+		a.pathMap[fmt.Sprintf("0x%016x", hash)] = path
+	}
+	for _, mod := range mods {
+		if mod.Archive != nil {
+			a.resourcePathsLoaded[mod.Name] = true
+		}
+	}
+}
+
+func (a *App) currentResourceConflicts() map[string]resourceConflictDetail {
+	details := make(map[string]resourceConflictDetail, len(a.result.Conflicts))
+	loadIndexes := make(map[*conflict.ModInfo]int, len(a.result.Mods))
+	for index, mod := range a.result.Mods {
+		loadIndexes[mod] = index
+	}
+
+	for _, entry := range a.result.Conflicts {
+		ordered := append([]*conflict.ModInfo(nil), entry.Mods...)
+		sort.SliceStable(ordered, func(i, j int) bool {
+			return loadIndexes[ordered[i]] < loadIndexes[ordered[j]]
+		})
+		if len(ordered) > 0 {
+			details[entry.Resource] = resourceConflictDetail{
+				winner: ordered[0],
+				mods:   ordered,
+			}
+		}
+	}
+	return details
+}
+
+func safeCSVCell(value string) string {
+	if value == "" {
+		return value
+	}
+	switch value[0] {
+	case '=', '+', '-', '@', '\t', '\r', '\n':
+		return "'" + value
+	default:
+		return value
+	}
 }
 
 // SetPriority sets the priority for mod name (0 = clear) and returns the updated result.
