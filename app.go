@@ -29,6 +29,7 @@ type App struct {
 	modlistSet          map[string]bool
 	initialModlistOrder []string          // snapshot of modlist order at last scan, used for Apply diff
 	pathMap             map[string]string // "0x<hex>" → human-readable resource path (from LXRS footers)
+	resourcePathsLoaded map[string]bool   // archive names already resolved against the optional hash database
 	modStructure        string            // "default" | "MO2" — set from CLI flag, not persisted
 }
 
@@ -137,6 +138,7 @@ func (a *App) ScanMO2(instanceDir, profile string) (ScanResultDTO, error) {
 	a.result = conflict.Detect(archives, a.cfg.Priorities)
 
 	a.pathMap = buildResourcePathMap(archives, a.result, modsDir)
+	a.resourcePathsLoaded = make(map[string]bool)
 
 	// Use the conflict-sorted order as the initial modlist order.
 	a.modlistOrder = make([]string, len(a.result.Mods))
@@ -238,6 +240,7 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 	// Resolve conflicted resource hashes using archive metadata and, when
 	// available, WolvenKit's path database installed by CET.
 	a.pathMap = buildResourcePathMap(archives, a.result, dir)
+	a.resourcePathsLoaded = make(map[string]bool)
 
 	if len(order) == 0 {
 		// No modlist.txt yet — create one with archives sorted alphabetically.
@@ -275,6 +278,106 @@ func (a *App) Scan(dir string) (ScanResultDTO, error) {
 	runtime.EventsEmit(a.ctx, "scan:progress", a.result.Summary())
 
 	return a.buildScanResult(), nil
+}
+
+// GetModResources returns the selected archive's resources grouped by their
+// current conflict outcome. Resource paths are resolved lazily so a normal scan
+// does not have to look up every file from every archive.
+func (a *App) GetModResources(name string) (ModResourcesDTO, error) {
+	if a.result == nil {
+		return ModResourcesDTO{}, fmt.Errorf("no scan result available")
+	}
+
+	var selected *conflict.ModInfo
+	for _, mod := range a.result.Mods {
+		if mod.Name == name {
+			selected = mod
+			break
+		}
+	}
+	if selected == nil || selected.Archive == nil {
+		return ModResourcesDTO{}, fmt.Errorf("archive %q not found", name)
+	}
+
+	if a.pathMap == nil {
+		a.pathMap = make(map[string]string)
+	}
+	if a.resourcePathsLoaded == nil {
+		a.resourcePathsLoaded = make(map[string]bool)
+	}
+	if !a.resourcePathsLoaded[name] {
+		unresolved := make(map[uint64]struct{})
+		for _, hash := range selected.Archive.FileHashes {
+			key := fmt.Sprintf("0x%016x", hash)
+			if _, found := a.pathMap[key]; !found {
+				unresolved[hash] = struct{}{}
+			}
+		}
+		for hash, path := range archive.ResolveKnownPaths(a.modDir, unresolved) {
+			a.pathMap[fmt.Sprintf("0x%016x", hash)] = path
+		}
+		a.resourcePathsLoaded[name] = true
+	}
+
+	loadIndexes := make(map[*conflict.ModInfo]int, len(a.result.Mods))
+	for index, mod := range a.result.Mods {
+		loadIndexes[mod] = index
+	}
+
+	type outcome uint8
+	const (
+		wins outcome = iota + 1
+		losses
+	)
+	conflictOutcomes := make(map[string]outcome, selected.ConflictCount)
+	for _, entry := range a.result.Conflicts {
+		containsSelected := false
+		var winner *conflict.ModInfo
+		winnerIndex := len(a.result.Mods)
+		for _, mod := range entry.Mods {
+			if mod == selected {
+				containsSelected = true
+			}
+			if index, found := loadIndexes[mod]; found && index < winnerIndex {
+				winner = mod
+				winnerIndex = index
+			}
+		}
+		if !containsSelected {
+			continue
+		}
+		if winner == selected {
+			conflictOutcomes[entry.Resource] = wins
+		} else {
+			conflictOutcomes[entry.Resource] = losses
+		}
+	}
+
+	resources := ModResourcesDTO{
+		Files:            make([]string, 0, len(selected.Archive.FileHashes)),
+		ConflictingFiles: make([]string, 0, selected.ConflictCount),
+		Wins:             make([]string, 0, selected.Wins),
+		Losses:           make([]string, 0, selected.Losses),
+	}
+	for _, hash := range selected.Archive.FileHashes {
+		key := fmt.Sprintf("0x%016x", hash)
+		display := key
+		if path, found := a.pathMap[key]; found {
+			display = path
+		}
+		resources.Files = append(resources.Files, display)
+
+		switch conflictOutcomes[key] {
+		case wins:
+			resources.ConflictingFiles = append(resources.ConflictingFiles, display)
+			resources.Wins = append(resources.Wins, display)
+		case losses:
+			resources.ConflictingFiles = append(resources.ConflictingFiles, display)
+			resources.Losses = append(resources.Losses, display)
+		}
+	}
+
+	return resources, nil
 }
 
 // SetPriority sets the priority for mod name (0 = clear) and returns the updated result.

@@ -20,6 +20,14 @@ type ModDTO struct {
 	HasXL         bool              `json:"hasXL"`
 }
 
+// ModResourcesDTO contains the resource lists shown on demand in the detail panel.
+type ModResourcesDTO struct {
+	Files            []string `json:"files"`
+	ConflictingFiles []string `json:"conflictingFiles"`
+	Wins             []string `json:"wins"`
+	Losses           []string `json:"losses"`
+}
+
 // DisplayRowDTO is one row in the mod list table.
 // Mod is nil when the archive appears in modlist.txt but is absent from disk (Missing=true).
 // Unlisted=true when the archive is on disk but absent from modlist.txt.

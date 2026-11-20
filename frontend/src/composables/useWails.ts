@@ -84,6 +84,10 @@ export function useWails() {
     return App.GetConflictGroup(name)
   }
 
+  async function getModResources(name: string) {
+    return App.GetModResources(name)
+  }
+
   async function setModlistOrder(names: string[]) {
     try {
       const result = await App.SetModlistOrder(names)
@@ -151,6 +155,7 @@ export function useWails() {
     writeModlist,
     getApplyPreview,
     getConflictGroup,
+    getModResources,
     setModlistOrder,
     groupConflicts,
     listBackups,

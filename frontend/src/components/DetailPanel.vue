@@ -3,17 +3,37 @@
     <div class="detail-name">{{ mod.name }}</div>
 
     <div class="detail-stats">
-      <div class="stat-row">
-        <span class="stat-label">Files</span><span>{{ mod.fileCount }}</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Conflicting files</span><span>{{ mod.conflictCount }}</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Wins</span><span class="text-success">{{ mod.wins }}</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Losses</span><span class="text-error">{{ mod.losses }}</span>
+      <div v-for="stat in resourceStats" :key="stat.key" class="stat-group">
+        <button
+          type="button"
+          class="stat-row stat-row--expandable"
+          :disabled="stat.count === 0"
+          :aria-expanded="stat.count > 0 ? isStatExpanded(stat.key) : undefined"
+          @click="toggleResourceStat(stat.key)"
+        >
+          <span class="stat-label">
+            <template v-if="stat.count > 0">
+              <ChevronDown v-if="isStatExpanded(stat.key)" :size="12" />
+              <ChevronRight v-else :size="12" />
+            </template>
+            <span>{{ stat.label }}</span>
+          </span>
+          <span :class="stat.valueClass">{{ stat.count }}</span>
+        </button>
+        <div v-if="isStatExpanded(stat.key)" class="stat-resource-list">
+          <div v-if="resourcesLoading" class="stat-resource-message">Loading resources…</div>
+          <div v-else-if="resourcesError" class="stat-resource-message text-error">{{ resourcesError }}</div>
+          <template v-else>
+            <div
+              v-for="(resource, index) in resourceList(stat.key)"
+              :key="`${stat.key}-${index}-${resource}`"
+              class="stat-resource"
+            >
+              <span class="stat-resource-index" :class="stat.valueClass">{{ index + 1 }}</span>
+              <span class="resource-path" :title="resource">{{ resource }}</span>
+            </div>
+          </template>
+        </div>
       </div>
       <!-- <div class="stat-row"><span class="stat-label">Priority</span><PriorityBadge :priority="mod.priority" /></div> -->
     </div>
@@ -94,6 +114,24 @@ const prioDialog = ref<HTMLDialogElement>()
 const prioInput = ref<HTMLInputElement>()
 const prioText = ref('')
 const expandedOpponents = ref(new Set<string>())
+type ResourceStatKey = 'files' | 'conflictingFiles' | 'wins' | 'losses'
+const expandedResourceStats = ref(new Set<ResourceStatKey>())
+const modResources = ref<main.ModResourcesDTO | null>(null)
+const resourcesLoading = ref(false)
+const resourcesError = ref('')
+let resourceRequest = 0
+
+const resourceStats = computed(() => [
+  { key: 'files' as const, label: 'Files', count: props.mod.fileCount, valueClass: '' },
+  {
+    key: 'conflictingFiles' as const,
+    label: 'Conflicting files',
+    count: props.mod.conflictCount,
+    valueClass: '',
+  },
+  { key: 'wins' as const, label: 'Wins', count: props.mod.wins, valueClass: 'text-success' },
+  { key: 'losses' as const, label: 'Losses', count: props.mod.losses, valueClass: 'text-error' },
+])
 
 const groupedConflicts = computed(() => {
   const map = new Map<string, Set<string>>()
@@ -115,8 +153,52 @@ watch(
   () => props.mod.name,
   () => {
     expandedOpponents.value = new Set()
+    expandedResourceStats.value = new Set()
+    modResources.value = null
+    resourcesLoading.value = false
+    resourcesError.value = ''
+    resourceRequest++
   }
 )
+
+function isStatExpanded(key: ResourceStatKey): boolean {
+  return expandedResourceStats.value.has(key)
+}
+
+async function toggleResourceStat(key: ResourceStatKey) {
+  const next = new Set(expandedResourceStats.value)
+  if (next.has(key)) {
+    next.delete(key)
+    expandedResourceStats.value = next
+    return
+  }
+
+  next.add(key)
+  expandedResourceStats.value = next
+  if (modResources.value || resourcesLoading.value) return
+
+  const request = ++resourceRequest
+  const modName = props.mod.name
+  resourcesLoading.value = true
+  resourcesError.value = ''
+  try {
+    const resources = await wails.getModResources(modName)
+    if (request === resourceRequest && props.mod.name === modName) {
+      modResources.value = resources
+    }
+  } catch (error) {
+    if (request === resourceRequest && props.mod.name === modName) {
+      resourcesError.value = String(error)
+    }
+  } finally {
+    if (request === resourceRequest) resourcesLoading.value = false
+  }
+}
+
+function resourceList(key: ResourceStatKey): string[] {
+  if (!modResources.value) return []
+  return modResources.value[key] ?? []
+}
 
 function isExpanded(opponent: string): boolean {
   return expandedOpponents.value.has(opponent)
@@ -172,18 +254,78 @@ async function clearPriority() {
 }
 .stat-row {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  width: 100%;
   font-size: 12px;
   padding: 4px 0;
   border-bottom: 1px solid var(--cp-border);
 }
+.stat-row--expandable {
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.stat-row--expandable:hover:not(:disabled) {
+  background: rgba(0, 229, 255, 0.06);
+}
+.stat-row--expandable:disabled {
+  cursor: default;
+  opacity: 1;
+}
 .stat-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
   color: var(--cp-dim);
   width: 130px;
   flex-shrink: 0;
   text-transform: uppercase;
   font-size: 11px;
   letter-spacing: 0.4px;
+}
+.stat-label svg {
+  flex-shrink: 0;
+}
+.stat-label > span:first-child:last-child {
+  margin-left: 15px;
+}
+.stat-resource-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 3px 4px 6px 18px;
+  border-bottom: 1px solid var(--cp-border);
+  background: rgba(0, 229, 255, 0.025);
+}
+.stat-resource,
+.stat-resource-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 0;
+  color: var(--cp-dim);
+  font-family: monospace;
+  font-size: 10px;
+  line-height: 1.35;
+}
+.stat-resource-index {
+  min-width: 16px;
+  color: var(--cp-dim);
+  text-align: right;
+  flex-shrink: 0;
+}
+.stat-resource-index.text-success {
+  color: var(--cp-success);
+}
+.stat-resource-index.text-error {
+  color: var(--cp-error);
 }
 .detail-actions {
   display: flex;
